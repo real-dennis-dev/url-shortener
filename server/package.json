@@ -8,6 +8,7 @@
     "@elastic/elasticsearch": "^9.2.0",
     "@faker-js/faker": "^10.1.0",
     "@google-cloud/logging-winston": "^6.0.1",
+    "@supabase/supabase-js": "^2.104.1",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^1.41.3",
