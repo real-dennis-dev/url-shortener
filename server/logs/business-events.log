@@ -1,0 +1,1 @@
+{"email":"johndoe@example.com","ip":"::ffff:127.0.0.1","level":"info","message":"user_registered","method":"POST","path":"/api/auth/register","requestId":"ef1128b8-497d-4c37-b6bb-269a836f63b2","service":"business","timestamp":"2026-05-13T10:14:58.587Z","userAgent":"vscode-restclient","userId":"f2f80c45-e00d-4a0e-bdd1-648b77a604a6","username":"johndoe"}

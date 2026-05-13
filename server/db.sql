@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- USERS TABLE (extends Supabase auth.users)
 -- =====================================================
 CREATE TABLE public.users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id serial PRIMARY KEY,
   email VARCHAR(255) UNIQUE NOT NULL,
   full_name VARCHAR(255),
   avatar_url TEXT,
@@ -24,13 +24,14 @@ CREATE TABLE public.users (
   last_login TIMESTAMP,
   email_verified BOOLEAN DEFAULT FALSE,
   email_verification_token VARCHAR(255),
+  email_verification_expires TIMESTAMP,
   reset_password_token VARCHAR(255),
   reset_password_expires TIMESTAMP,
   suspended_at TIMESTAMP,
   deleted_at TIMESTAMP,
   is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+    created_at timestamp with time zone default now() not null,
+  updated_at timestamp with time zone default now() not null
 );
 
 -- Create index on frequently queried columns

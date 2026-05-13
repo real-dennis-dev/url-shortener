@@ -1,7 +1,7 @@
 // controllers/auth.controller.js
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { supabase } from "../config/supabase.js";
+import { supabase, supabaseAdmin } from "../config/supabase.js";
 import { sendMail } from "../utils/email.js";
 import {
   BadRequestError,
@@ -20,13 +20,13 @@ import {
 import { createRequestContextLogger } from "../utils/logger.js";
 
 // REGISTER
+
 export const register = async (req, res, next) => {
   const log = createRequestContextLogger(req);
 
   try {
     const { full_name, email, username, password } = req.body;
 
-    // Basic validation
     if (!email || !password || !username || !full_name) {
       throw new BadRequestError(
         "Full name, email, username, and password are required."
@@ -37,69 +37,78 @@ export const register = async (req, res, next) => {
     const normalizedFullName = full_name.trim();
     const normalizedUsername = username.trim();
 
-    // Validate password strength
     if (password.length < 8) {
       throw new BadRequestError("Password must be at least 8 characters long.");
     }
 
-    // Hash password
+    // Hash password (for your custom login later)
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Check if email exists
-    const { data: existingEmail, error: emailError } = await supabase
+    // === 1. Check if user already exists ===
+    const { data: existing } = await supabaseAdmin
       .from("users")
-      .select("email")
-      .eq("email", normalizedEmail)
+      .select("id")
+      .or(`email.eq.${normalizedEmail},username.eq.${normalizedUsername}`)
       .single();
 
-    if (existingEmail) {
-      throw new ConflictError(`${normalizedEmail} already exists`);
+    if (existing) {
+      throw new ConflictError("Email or username already exists");
     }
 
-    // Check if username exists
-    const { data: existingUsername, error: usernameError } = await supabase
-      .from("users")
-      .select("username")
-      .eq("username", normalizedUsername)
-      .single();
+    // === 2. Create user in Supabase Auth ===
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email: normalizedEmail,
+        password: password, // Supabase will hash it internally
+        email_confirm: true, // Auto-confirm for now (change if needed)
+        user_metadata: {
+          full_name: normalizedFullName,
+          username: normalizedUsername,
+        },
+      });
 
-    if (existingUsername) {
-      throw new ConflictError(`${normalizedUsername} already exists`);
+    if (authError) {
+      throw new BadRequestError(`Failed to create account:`);
     }
 
-    // Generate email verification token
+    const newAuthUser = authData.user;
+
+    // === 3. Generate verification token (if needed) ===
     const emailVerificationToken = crypto.randomBytes(32).toString("hex");
-    const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    // Insert user into Supabase
-    const { data: newUser, error: insertError } = await supabase
+    // === 4. Create profile in public.users ===
+    const { data: newUser, error: insertError } = await supabaseAdmin
       .from("users")
       .insert({
+        id: newAuthUser.id, // Must match auth.users.id
         full_name: normalizedFullName,
         username: normalizedUsername,
         email: normalizedEmail,
-        password_hash: hashedPassword,
+        password_hash: hashedPassword, // ← Your custom hashed password
         role: "user",
+        plan: "free",
         status: "active",
         is_active: true,
-        email_verified:
-          process.env.REQUIRE_EMAIL_VERIFICATION === "true" ? false : true,
+        email_verified: true, // Since we used email_confirm: true
         email_verification_token: emailVerificationToken,
         email_verification_expires: emailVerificationExpires,
-        created_at: new Date(),
-        updated_at: new Date(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .select(
-        "id, full_name, email, username, role, is_active, created_at, email_verified"
+        "id, full_name, email, username, role, is_active, email_verified, created_at"
       )
       .single();
 
     if (insertError) {
-      console.error("Insert error:", insertError);
-      throw new BadRequestError("Failed to create user. Please try again.");
+      console.error("Profile Insert Error:", insertError);
+      // Optional: Clean up auth user if profile creation fails
+      await supabaseAdmin.auth.admin.deleteUser(newAuthUser.id);
+      throw new BadRequestError("Failed to create user profile");
     }
 
-    // Send verification email if required
+    // === Send verification email if required ===
     if (process.env.REQUIRE_EMAIL_VERIFICATION === "true") {
       const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${emailVerificationToken}`;
       await sendMail(
@@ -110,7 +119,6 @@ export const register = async (req, res, next) => {
           <p>Please verify your email address by clicking the link below:</p>
           <a href="${verificationUrl}" target="_blank">Verify Email</a>
           <p>This link expires in 24 hours.</p>
-          <p>If you didn't create an account, please ignore this email.</p>
         `
       );
     }
@@ -121,13 +129,9 @@ export const register = async (req, res, next) => {
       username: newUser.username,
     });
 
-    // Success response
     return res.status(201).json({
       success: true,
-      message:
-        process.env.REQUIRE_EMAIL_VERIFICATION === "true"
-          ? "Account created successfully. Please check your email to verify your account."
-          : "Account created successfully.",
+      message: "Account created successfully.",
       user: {
         id: newUser.id,
         full_name: newUser.full_name,
@@ -175,13 +179,6 @@ export const login = async (req, res, next) => {
     if (user.status === "banned") {
       log.security("banned_user_login_attempt", { email: normalizedEmail });
       throw new UnauthorizedError("Your account has been banned.");
-    }
-
-    // Check if user is suspended
-    if (user.status === "suspended") {
-      throw new UnauthorizedError(
-        "Your account has been suspended. Please contact support."
-      );
     }
 
     // Verify password
