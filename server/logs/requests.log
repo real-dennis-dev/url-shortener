@@ -82,3 +82,5 @@
 {"durationMs":1839,"level":"info","message":"Request completed","method":"POST","requestId":"62b0c4be-cd72-4ca7-bb96-7f020339d16b","service":"request","statusCode":409,"timestamp":"2026-05-13T10:15:18.057Z","url":"/api/auth/register"}
 {"durationMs":1839,"level":"warn","message":"Slow request detected","method":"POST","requestId":"62b0c4be-cd72-4ca7-bb96-7f020339d16b","service":"request","timestamp":"2026-05-13T10:15:18.069Z","url":"/api/auth/register"}
 {"environment":"development","level":"info","message":"Server started","nodeVersion":"v24.10.0","pid":10876,"port":"5000","service":"request","timestamp":"2026-05-13T10:16:32.032Z"}
+{"environment":"development","level":"info","message":"Server started","nodeVersion":"v24.10.0","pid":6864,"port":"5000","service":"request","timestamp":"2026-05-13T10:20:08.944Z"}
+{"level":"info","message":"Graceful shutdown initiated: SIGINT","service":"request","timestamp":"2026-05-13T10:42:24.328Z"}
