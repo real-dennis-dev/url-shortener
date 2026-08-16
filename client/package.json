@@ -1,5 +1,5 @@
 {
-  "name": "xthreads",
+  "name": "url shortener",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.1.17",
+    "@tailwindcss/vite": "^4.3.3",
     "@tinymce/tinymce-react": "^6.3.0",
     "axios": "^1.13.2",
     "chart.js": "^4.5.1",
@@ -21,7 +21,7 @@
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.2.0",
     "react-hot-toast": "^2.6.0",
-    "react-router-dom": "^7.10.1",
+    "react-router-dom": "^7.18.2",
     "react-toastify": "^11.0.5"
   },
   "devDependencies": {
@@ -35,7 +35,7 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.17",
+    "tailwindcss": "^4.3.3",
     "vite": "^7.2.4"
   }
 }

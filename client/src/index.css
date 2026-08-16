@@ -1,68 +1,205 @@
+@import "tailwindcss";
+
+/* ============================================
+   Theme - Chocolate / White / Black
+============================================ */
+
+@theme {
+  /* Primary - Chocolate */
+  --color-primary-400: #8b5e3c; /* Medium chocolate */
+  --color-primary-500: #6f4518; /* Rich chocolate */
+  --color-primary-600: #4a2c17; /* Dark chocolate */
+
+  /* Secondary - Cocoa */
+  --color-secondary-500: #3b2414;
+
+  /* Accent - Caramel */
+  --color-accent-100: #f3e2c7;
+  --color-accent-400: #c89b5b;
+
+  /* Neutral - White / Gray / Black */
+  --color-neutral-100: #ffffff;
+  --color-neutral-200: #f8f5f2;
+  --color-neutral-300: #e7ded5;
+  --color-neutral-400: #b8a99a;
+  --color-neutral-500: #7a6a5d;
+  --color-neutral-600: #55483f;
+  --color-neutral-700: #3a312b;
+  --color-neutral-800: #211b17;
+  --color-neutral-900: #0d0b09;
+
+  /* Semantic Colors */
+  --color-success: #3f7d4a;
+  --color-warning: #b7791f;
+  --color-error: #b91c1c;
+  --color-info: #2563eb;
+
+  /* Fonts */
+  --font-primary: "Inter", system-ui, sans-serif;
+  --font-secondary: "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-heading: "Inter", system-ui, sans-serif;
+
+  /* Font Sizes */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2rem;
+  --text-5xl: 2.5rem;
+
+  /* Font Weights */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+}
+
+/* ============================================
+   Responsive CSS Variables
+============================================ */
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --font-size-body: 0.875rem;
+  --font-size-primary-heading: 2rem;
+  --font-size-secondary-heading: 1rem;
+  --font-size-nav: 0.9375rem;
+  --font-size-button: 0.8125rem;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
+@media (min-width: 50em) {
   :root {
-    color: #213547;
-    background-color: #ffffff;
+    --font-size-body: 0.9375rem;
+    --font-size-primary-heading: 2.5rem;
+    --font-size-secondary-heading: 2rem;
+    --font-size-nav: 0.875rem;
+    --font-size-button: 0.8125rem;
   }
-  a:hover {
-    color: #747bff;
+}
+
+/* ============================================
+   Base
+============================================ */
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
   }
-  button {
-    background-color: #f9f9f9;
+
+  * {
+    margin: 0;
+    padding: 0;
+    font: inherit;
   }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  html:focus-within {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    text-rendering: optimizeSpeed;
+
+    line-height: 1.5;
+
+    font-family: var(--font-body);
+
+    font-size: var(--font-size-body);
+
+    background: var(--color-neutral-100);
+
+    color: var(--color-neutral-900);
+  }
+
+  ul[role="list"],
+  ol[role="list"] {
+    list-style: none;
+  }
+
+  img,
+  picture,
+  svg {
+    display: block;
+
+    max-width: 100%;
+  }
+
+  h1 {
+    font-size: var(--font-size-primary-heading);
+
+    font-family: var(--font-heading);
+
+    font-weight: var(--font-weight-bold);
+  }
+
+  h2,
+  h3 {
+    font-size: var(--font-size-secondary-heading);
+
+    font-family: var(--font-heading);
+
+    font-weight: var(--font-weight-bold);
+  }
+}
+
+/* ============================================
+   Accessibility
+============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+
+    animation-iteration-count: 1 !important;
+
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+   Scrollbars
+============================================ */
+
+::-webkit-scrollbar {
+  width: 6px;
+
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-neutral-200);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary-400);
+
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-600);
+}
+
+/* Dark Mode Scrollbar */
+
+.dark ::-webkit-scrollbar-track {
+  background: var(--color-neutral-800);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: var(--color-primary-400);
 }

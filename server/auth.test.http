@@ -1,0 +1,390 @@
+@baseUrl = http://localhost:5000/api/v1
+@email = test{{$timestamp}}@example.com
+@password = Secure@Pass123
+@username = testuser{{$timestamp}}
+@fullName = Test User
+
+# ============================================================
+# AUTHENTICATION TESTS
+# ============================================================
+
+### ---------------------------------------------------------
+### REGISTER
+### ---------------------------------------------------------
+
+### Register new user
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "fullName": "{{fullName}}",
+  "username": "{{username}}"
+}
+
+
+### Register - missing email
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "password": "{{password}}",
+  "fullName": "{{fullName}}",
+  "username": "{{username}}"
+}
+
+
+### Register - invalid email
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "not-an-email",
+  "password": "{{password}}",
+  "fullName": "{{fullName}}",
+  "username": "{{username}}"
+}
+
+
+### Register - weak password
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "weakpassword@example.com",
+  "password": "password",
+  "fullName": "Weak Password",
+  "username": "weakpassword"
+}
+
+
+### Register - password too short
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "short@example.com",
+  "password": "Ab1",
+  "fullName": "Short Password",
+  "username": "shortpass"
+}
+
+
+### Register - invalid username
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "username@example.com",
+  "password": "{{password}}",
+  "fullName": "Invalid Username",
+  "username": "bad-user!"
+}
+
+
+### Register - missing full name
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "noname@example.com",
+  "password": "{{password}}",
+  "username": "noname"
+}
+
+
+### Register - duplicate email
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "fullName": "{{fullName}}",
+  "username": "anotheruser{{$timestamp}}"
+}
+
+
+### Register - duplicate username
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "another{{$timestamp}}@example.com",
+  "password": "{{password}}",
+  "fullName": "{{fullName}}",
+  "username": "{{username}}"
+}
+
+
+# ============================================================
+# LOGIN
+# ============================================================
+
+### Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+
+### Login - invalid password
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "WrongPassword123"
+}
+
+
+### Login - nonexistent user
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "doesnotexist@example.com",
+  "password": "Secure@Pass123"
+}
+
+
+### Login - missing email
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "password": "{{password}}"
+}
+
+
+### Login - missing password
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}"
+}
+
+
+# ============================================================
+# CURRENT USER
+# ============================================================
+
+### Get current user
+GET {{baseUrl}}/auth/me
+
+
+### Get current user with Bearer token
+# Replace YOUR_ACCESS_TOKEN with a real access token
+GET {{baseUrl}}/auth/me
+Authorization: Bearer YOUR_ACCESS_TOKEN
+
+
+# ============================================================
+# REFRESH TOKEN
+# ============================================================
+
+### Refresh access token
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+
+### Refresh with refresh token in body
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "YOUR_REFRESH_TOKEN"
+}
+
+
+# ============================================================
+# LOGOUT
+# ============================================================
+
+### Logout
+POST {{baseUrl}}/auth/logout
+
+
+# ============================================================
+# EMAIL VERIFICATION
+# ============================================================
+
+### Verify email
+# Replace TOKEN with actual verification token
+GET {{baseUrl}}/auth/verify-email/TOKEN
+
+
+### Verify email - invalid token
+GET {{baseUrl}}/auth/verify-email/invalid-token
+
+
+# ============================================================
+# PASSWORD RESET
+# ============================================================
+
+### Request password reset
+POST {{baseUrl}}/auth/reset-password
+Content-Type: application/json
+
+{
+  "email": "{{email}"
+}
+
+
+### Request password reset - nonexistent email
+POST {{baseUrl}}/auth/reset-password
+Content-Type: application/json
+
+{
+  "email": "doesnotexist@example.com"
+}
+
+
+### Reset password
+# Replace TOKEN with actual reset token
+POST {{baseUrl}}/auth/reset-password/TOKEN
+Content-Type: application/json
+
+{
+  "newPassword": "NewSecure@Pass123",
+  "confirmPassword": "NewSecure@Pass123"
+}
+
+
+### Reset password - mismatched passwords
+POST {{baseUrl}}/auth/reset-password/TOKEN
+Content-Type: application/json
+
+{
+  "newPassword": "NewSecure@Pass123",
+  "confirmPassword": "Different@Pass123"
+}
+
+
+# ============================================================
+# CHANGE PASSWORD
+# ============================================================
+
+### Change password
+PUT {{baseUrl}}/auth/change-password
+Content-Type: application/json
+
+{
+  "currentPassword": "{{password}}",
+  "newPassword": "NewSecure@Pass123",
+  "confirmPassword": "NewSecure@Pass123"
+}
+
+
+### Change password - wrong current password
+PUT {{baseUrl}}/auth/change-password
+Content-Type: application/json
+
+{
+  "currentPassword": "WrongPassword123",
+  "newPassword": "NewSecure@Pass123",
+  "confirmPassword": "NewSecure@Pass123"
+}
+
+
+### Change password - mismatched confirmation
+PUT {{baseUrl}}/auth/change-password
+Content-Type: application/json
+
+{
+  "currentPassword": "{{password}}",
+  "newPassword": "NewSecure@Pass123",
+  "confirmPassword": "Different@Pass123"
+}
+
+
+# ============================================================
+# API KEY
+# ============================================================
+
+### Regenerate API key
+POST {{baseUrl}}/auth/api-key/regenerate
+
+
+# ============================================================
+# SESSIONS
+# ============================================================
+
+### Get all sessions
+GET {{baseUrl}}/auth/sessions
+
+
+### Get session statistics
+GET {{baseUrl}}/auth/sessions/stats
+
+
+### Get current session
+GET {{baseUrl}}/auth/sessions/current
+
+
+### Revoke a session
+# Replace SESSION_TOKEN with actual session token
+DELETE {{baseUrl}}/auth/sessions/SESSION_TOKEN
+
+
+### Revoke all sessions except current
+DELETE {{baseUrl}}/auth/sessions/all
+
+
+# ============================================================
+# AUTHENTICATION FAILURE TESTS
+# ============================================================
+
+### Protected endpoint without authentication
+GET {{baseUrl}}/auth/me
+
+
+### Protected endpoint with invalid token
+GET {{baseUrl}}/auth/me
+Authorization: Bearer invalid-token
+
+
+### Protected endpoint with malformed Authorization header
+GET {{baseUrl}}/auth/me
+Authorization: Invalid invalid-token
+
+
+# ============================================================
+# CONTENT / MALFORMED REQUEST TESTS
+# ============================================================
+
+### Empty request body
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{}
+
+
+### Invalid JSON
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password":
+}
+
+
+### Unknown fields
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "unknown{{$timestamp}}@example.com",
+  "password": "{{password}}",
+  "fullName": "Unknown Fields",
+  "username": "unknown{{$timestamp}}",
+  "admin": true,
+  "role": "admin",
+  "isAdmin": true
+}

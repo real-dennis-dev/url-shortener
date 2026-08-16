@@ -1,0 +1,424 @@
+openapi: 3.0.0
+info:
+  title: Bulk Upload Module API
+  description: API endpoints for managing bulk URL uploads
+  version: 1.0.0
+
+paths:
+  /api/v1/bulk-upload:
+    post:
+      summary: Upload bulk URLs
+      description: Upload a CSV or Excel file containing URLs to be shortened in bulk
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: CSV or Excel file containing URLs
+              required:
+                - file
+      responses:
+        "201":
+          description: Bulk upload created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Bulk upload created successfully
+                  data:
+                    type: object
+                    properties:
+                      jobId:
+                        type: string
+                        format: uuid
+                        example: "123e4567-e89b-12d3-a456-426614174000"
+                      status:
+                        type: string
+                        enum: [pending]
+                        example: pending
+                      totalUrls:
+                        type: integer
+                        example: 100
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      summary: Get all bulk uploads
+      description: Retrieve all bulk uploads for the authenticated user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Items per page
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed, cancelled]
+          description: Filter by status
+      responses:
+        "200":
+          description: Bulk uploads retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Bulk uploads retrieved
+                  data:
+                    type: object
+                    properties:
+                      uploads:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/BulkUpload"
+                      pagination:
+                        type: object
+                        properties:
+                          page:
+                            type: integer
+                            example: 1
+                          limit:
+                            type: integer
+                            example: 20
+                          total:
+                            type: integer
+                            example: 50
+                          totalPages:
+                            type: integer
+                            example: 3
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/bulk-upload/{id}:
+    get:
+      summary: Get bulk upload status
+      description: Retrieve the status and details of a specific bulk upload job
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Bulk upload ID
+      responses:
+        "200":
+          description: Bulk upload status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Bulk upload status retrieved
+                  data:
+                    $ref: "#/components/schemas/BulkUploadDetail"
+        "404":
+          description: Bulk upload not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/bulk-upload/{id}/cancel:
+    post:
+      summary: Cancel bulk upload
+      description: Cancel a pending or processing bulk upload job
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Bulk upload ID
+      responses:
+        "200":
+          description: Bulk upload cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Bulk upload cancelled successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      status:
+                        type: string
+                        enum: [cancelled]
+                        example: cancelled
+        "400":
+          description: Cannot cancel bulk upload in current status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Bulk upload not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/bulk-upload/template:
+    get:
+      summary: Download template
+      description: Download a CSV or Excel template for bulk upload
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, excel]
+            default: csv
+          description: File format to download
+      responses:
+        "200":
+          description: Template downloaded successfully
+          content:
+            text/csv:
+              schema:
+                type: string
+                example: "url,title,description,tags\nhttps://example.com,Example,Description,tag1,tag2"
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid format specified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/bulk-upload/stats/overview:
+    get:
+      summary: Get upload statistics
+      description: Get statistics for all bulk uploads by the user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Upload statistics retrieved
+                  data:
+                    type: object
+                    properties:
+                      summary:
+                        type: object
+                        properties:
+                          total_uploads:
+                            type: integer
+                            example: 25
+                          total_urls:
+                            type: integer
+                            example: 1500
+                          total_successful:
+                            type: integer
+                            example: 1420
+                          total_failed:
+                            type: integer
+                            example: 80
+                          completed:
+                            type: integer
+                            example: 20
+                          failed:
+                            type: integer
+                            example: 3
+                          processing:
+                            type: integer
+                            example: 1
+                          pending:
+                            type: integer
+                            example: 1
+                          cancelled:
+                            type: integer
+                            example: 0
+                      recent:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                            filename:
+                              type: string
+                            status:
+                              type: string
+                            total_urls:
+                              type: integer
+                            created_at:
+                              type: string
+                              format: date-time
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    BulkUpload:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        filename:
+          type: string
+          example: "urls_2024_01_01.csv"
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, cancelled]
+          example: pending
+        totalUrls:
+          type: integer
+          example: 100
+        successful:
+          type: integer
+          example: 0
+        failed:
+          type: integer
+          example: 0
+        progress:
+          type: integer
+          example: 0
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    BulkUploadDetail:
+      allOf:
+        - $ref: "#/components/schemas/BulkUpload"
+        - type: object
+          properties:
+            errors:
+              type: array
+              items:
+                type: object
+                properties:
+                  row:
+                    type: integer
+                  url:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: string
+              nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Error message"
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+        statusCode:
+          type: integer
+          example: 400

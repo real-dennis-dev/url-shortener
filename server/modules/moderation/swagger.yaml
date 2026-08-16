@@ -1,0 +1,754 @@
+openapi: 3.0.0
+info:
+  title: Moderation Module API
+  version: 1.0.0
+  description: URL Shortener Moderation Module API Documentation
+
+paths:
+  /api/v1/moderation/urls/{urlId}:
+    post:
+      summary: Moderate a URL
+      description: Apply moderation action to a URL (moderator+ only)
+      tags: [Moderation]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: urlId
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: URL ID to moderate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - reason
+              properties:
+                action:
+                  type: string
+                  enum: [block, flag, warn, delete, review]
+                  description: Moderation action to apply
+                reason:
+                  type: string
+                  maxLength: 500
+                  description: Reason for moderation
+                notes:
+                  type: string
+                  maxLength: 1000
+                  description: Additional notes
+      responses:
+        200:
+          description: URL moderated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  url:
+                    $ref: "#/components/schemas/Url"
+                  moderationLog:
+                    $ref: "#/components/schemas/ModerationLog"
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Insufficient permissions
+        404:
+          description: URL not found
+
+  /api/v1/moderation/reports:
+    post:
+      summary: Create abuse report
+      description: Create a report for an abusive URL
+      tags: [Reports]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - urlId
+                - reason
+              properties:
+                urlId:
+                  type: string
+                  format: uuid
+                  description: URL ID to report
+                reason:
+                  type: string
+                  enum:
+                    [
+                      spam,
+                      malware,
+                      phishing,
+                      harassment,
+                      adult_content,
+                      illegal_activity,
+                      copyright,
+                      other,
+                    ]
+                  description: Reason for report
+                description:
+                  type: string
+                  maxLength: 1000
+                  description: Additional description
+                reporterEmail:
+                  type: string
+                  format: email
+                  description: Reporter email (optional if authenticated)
+      responses:
+        201:
+          description: Report created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        400:
+          description: Validation error
+        404:
+          description: URL not found
+        409:
+          description: Report already exists
+
+    get:
+      summary: Get reports
+      description: Retrieve reports with filters (moderator+ only)
+      tags: [Reports]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, investigating, resolved, dismissed]
+          description: Filter by status
+        - in: query
+          name: reason
+          schema:
+            type: string
+            enum:
+              [
+                spam,
+                malware,
+                phishing,
+                harassment,
+                adult_content,
+                illegal_activity,
+                copyright,
+                other,
+              ]
+          description: Filter by reason
+        - in: query
+          name: urlId
+          schema:
+            type: string
+            format: uuid
+          description: Filter by URL ID
+        - in: query
+          name: reportedBy
+          schema:
+            type: integer
+          description: Filter by reporter user ID
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+          description: Filter from date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+          description: Filter to date
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page
+      responses:
+        200:
+          description: Reports retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Report"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  limit:
+                    type: integer
+
+  /api/v1/moderation/reports/{id}:
+    get:
+      summary: Get report details
+      description: Get detailed report information (moderator+ only)
+      tags: [Reports]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Report ID
+      responses:
+        200:
+          description: Report details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportDetail"
+        404:
+          description: Report not found
+
+    put:
+      summary: Update report
+      description: Update report status and resolution (moderator+ only)
+      tags: [Reports]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Report ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [pending, investigating, resolved, dismissed]
+                  description: New report status
+                resolution:
+                  type: string
+                  maxLength: 500
+                  description: Resolution details (required if status is resolved)
+      responses:
+        200:
+          description: Report updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        400:
+          description: Validation error
+        404:
+          description: Report not found
+
+  /api/v1/moderation/blacklist:
+    get:
+      summary: Get blacklist
+      description: Retrieve domain blacklist (moderator+ only)
+      tags: [Blacklist]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: domain
+          schema:
+            type: string
+          description: Filter by domain
+        - in: query
+          name: expiresAt
+          schema:
+            type: string
+            format: date
+          description: Filter by expiration
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page
+      responses:
+        200:
+          description: Blacklist retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blacklist:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BlacklistEntry"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  limit:
+                    type: integer
+
+    post:
+      summary: Add to blacklist
+      description: Add domain to blacklist (moderator+ only)
+      tags: [Blacklist]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - domain
+                - reason
+              properties:
+                domain:
+                  type: string
+                  description: Domain to blacklist
+                reason:
+                  type: string
+                  maxLength: 500
+                  description: Reason for blacklisting
+                expiresAt:
+                  type: string
+                  format: date-time
+                  description: Expiration date (optional)
+      responses:
+        201:
+          description: Domain added to blacklist successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlacklistEntry"
+        400:
+          description: Validation error
+        409:
+          description: Domain already in blacklist
+
+  /api/v1/moderation/blacklist/{id}:
+    delete:
+      summary: Remove from blacklist
+      description: Remove domain from blacklist (moderator+ only)
+      tags: [Blacklist]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: Blacklist entry ID
+      responses:
+        200:
+          description: Domain removed from blacklist successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  deleted:
+                    $ref: "#/components/schemas/BlacklistEntry"
+        404:
+          description: Domain not found in blacklist
+
+  /api/v1/moderation/flagged:
+    get:
+      summary: Get flagged URLs
+      description: Retrieve flagged and blocked URLs (moderator+ only)
+      tags: [Moderation]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page
+      responses:
+        200:
+          description: Flagged URLs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  urls:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FlaggedUrl"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  limit:
+                    type: integer
+
+  /api/v1/moderation/logs/{urlId}:
+    get:
+      summary: Get moderation logs
+      description: Retrieve moderation history for a URL (moderator+ only)
+      tags: [Moderation]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: urlId
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: URL ID
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page
+      responses:
+        200:
+          description: Moderation logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logs:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ModerationLog"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  limit:
+                    type: integer
+        404:
+          description: URL not found
+
+  /api/v1/moderation/auto:
+    post:
+      summary: Auto-moderate URL
+      description: Check URL against automated moderation rules (internal use)
+      tags: [Moderation]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  description: URL to check
+                title:
+                  type: string
+                  description: URL title
+                description:
+                  type: string
+                  description: URL description
+      responses:
+        200:
+          description: Auto-moderation check complete
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  flagged:
+                    type: boolean
+                  reason:
+                    type: string
+                    nullable: true
+                  action:
+                    type: string
+                    enum: [block, flag, null]
+                    nullable: true
+                  confidence:
+                    type: number
+                    nullable: true
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Url:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        short_code:
+          type: string
+        original_url:
+          type: string
+        user_id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, blocked, flagged, expired]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        url_id:
+          type: string
+          format: uuid
+        reported_by:
+          type: integer
+          nullable: true
+        reporter_email:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          enum:
+            [
+              spam,
+              malware,
+              phishing,
+              harassment,
+              adult_content,
+              illegal_activity,
+              copyright,
+              other,
+            ]
+        description:
+          type: string
+        status:
+          type: string
+          enum: [pending, investigating, resolved, dismissed]
+        resolution:
+          type: string
+          nullable: true
+        resolved_by:
+          type: integer
+          nullable: true
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ReportDetail:
+      allOf:
+        - $ref: "#/components/schemas/Report"
+        - type: object
+          properties:
+            reporter_email_full:
+              type: string
+              nullable: true
+            reporter_name:
+              type: string
+              nullable: true
+            short_code:
+              type: string
+            original_url:
+              type: string
+            title:
+              type: string
+            click_count:
+              type: integer
+            url_status:
+              type: string
+            moderation_action:
+              type: string
+              nullable: true
+            moderation_reason:
+              type: string
+              nullable: true
+            moderated_at:
+              type: string
+              format: date-time
+              nullable: true
+            moderation_logs:
+              type: array
+              items:
+                $ref: "#/components/schemas/ModerationLog"
+
+    ModerationLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        url_id:
+          type: string
+          format: uuid
+        admin_id:
+          type: integer
+        action:
+          type: string
+          enum: [block, flag, warn, delete, review]
+        reason:
+          type: string
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        admin_email:
+          type: string
+          nullable: true
+        admin_name:
+          type: string
+          nullable: true
+
+    BlacklistEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        domain:
+          type: string
+        reason:
+          type: string
+        added_by:
+          type: integer
+        added_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        added_by_email:
+          type: string
+          nullable: true
+        added_by_name:
+          type: string
+          nullable: true
+
+    FlaggedUrl:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        short_code:
+          type: string
+        original_url:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+          enum: [flagged, blocked]
+        user_email:
+          type: string
+        user_name:
+          type: string
+        total_clicks:
+          type: integer
+        last_click:
+          type: string
+          format: date-time
+          nullable: true
+        moderated_at:
+          type: string
+          format: date-time
+          nullable: true
+        moderation_reason:
+          type: string
+          nullable: true
+        recent_moderation_logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModerationLog"
+
+tags:
+  - name: Moderation
+    description: URL moderation operations
+  - name: Reports
+    description: Abuse report management
+  - name: Blacklist
+    description: Domain blacklist management

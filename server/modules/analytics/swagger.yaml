@@ -1,0 +1,559 @@
+# src/modules/analytics/swagger.yaml
+openapi: 3.0.0
+info:
+  title: URL Shortener Analytics API
+  version: 1.0.0
+  description: Analytics module API documentation
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    DateRange:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+
+    OverviewAnalytics:
+      type: object
+      properties:
+        totalUrls:
+          type: integer
+        totalClicks:
+          type: integer
+        newUrls:
+          type: integer
+        newClicks:
+          type: integer
+        activeUrls:
+          type: integer
+        clickThroughRate:
+          type: number
+          format: float
+        topUrls:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              short_code:
+                type: string
+              original_url:
+                type: string
+              title:
+                type: string
+              click_count:
+                type: integer
+        period:
+          $ref: "#/components/schemas/DateRange"
+
+    DeviceAnalytics:
+      type: object
+      properties:
+        devices:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: integer
+        browsers:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: integer
+        operatingSystems:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              value:
+                type: integer
+
+    LocationAnalytics:
+      type: object
+      properties:
+        countries:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              visits:
+                type: integer
+              uniqueVisitors:
+                type: integer
+        cities:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              visits:
+                type: integer
+        regions:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              visits:
+                type: integer
+
+    TimelineData:
+      type: object
+      properties:
+        labels:
+          type: array
+          items:
+            type: string
+        clicks:
+          type: array
+          items:
+            type: integer
+        uniqueVisitors:
+          type: array
+          items:
+            type: integer
+        uniqueIps:
+          type: array
+          items:
+            type: integer
+
+    RealTimeAnalytics:
+      type: object
+      properties:
+        activeUsers:
+          type: integer
+        clicksLastHour:
+          type: integer
+        recentClicks:
+          type: array
+          items:
+            type: object
+        clicksPerMinute:
+          type: array
+          items:
+            type: object
+            properties:
+              minute:
+                type: string
+              clicks:
+                type: integer
+        timestamp:
+          type: string
+          format: date-time
+
+paths:
+  /api/v1/analytics/dashboard:
+    get:
+      summary: Get analytics dashboard
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Start date for analytics
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: End date for analytics
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      overview:
+                        $ref: "#/components/schemas/OverviewAnalytics"
+                      recentUrls:
+                        type: array
+                      chartData:
+                        $ref: "#/components/schemas/TimelineData"
+                      timestamp:
+                        type: string
+        401:
+          description: Unauthorized
+        429:
+          description: Rate limit exceeded
+
+  /api/v1/analytics/urls/{urlId}:
+    get:
+      summary: Get URL analytics
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: urlId
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: URL ID
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Start date
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: End date
+        - in: query
+          name: deviceType
+          schema:
+            type: string
+          description: Filter by device type
+        - in: query
+          name: country
+          schema:
+            type: string
+          description: Filter by country
+        - in: query
+          name: browser
+          schema:
+            type: string
+          description: Filter by browser
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      url:
+                        type: object
+                      summary:
+                        type: object
+                      devices:
+                        type: array
+                      browsers:
+                        type: array
+                      countries:
+                        type: array
+                      referrers:
+                        type: array
+                      timeline:
+                        type: array
+                      recentClicks:
+                        type: array
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: URL not found
+
+  /api/v1/analytics/overview:
+    get:
+      summary: Get overview analytics
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Start date
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: End date
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/OverviewAnalytics"
+
+  /api/v1/analytics/referrers:
+    get:
+      summary: Get top referrers
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: urlId
+          schema:
+            type: string
+            format: uuid
+          description: Filter by specific URL
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Number of referrers to return
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        referrer_domain:
+                          type: string
+                        count:
+                          type: integer
+                        unique_sessions:
+                          type: integer
+
+  /api/v1/analytics/devices:
+    get:
+      summary: Get device analytics
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: urlId
+          schema:
+            type: string
+            format: uuid
+          description: Filter by specific URL
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Start date
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: End date
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/DeviceAnalytics"
+
+  /api/v1/analytics/locations:
+    get:
+      summary: Get location analytics
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: urlId
+          schema:
+            type: string
+            format: uuid
+          description: Filter by specific URL
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Start date
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: End date
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/LocationAnalytics"
+
+  /api/v1/analytics/timeline:
+    get:
+      summary: Get timeline data
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: urlId
+          schema:
+            type: string
+            format: uuid
+          description: Filter by specific URL
+        - in: query
+          name: interval
+          schema:
+            type: string
+            enum: [hour, day, week, month]
+            default: day
+          description: Time interval for aggregation
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Start date
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: End date
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/TimelineData"
+
+  /api/v1/analytics/export:
+    get:
+      summary: Export analytics data
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: urlId
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: URL ID
+        - in: query
+          name: format
+          schema:
+            type: string
+            enum: [csv, json, excel]
+            default: csv
+          description: Export format
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Start date
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: End date
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/csv:
+              schema:
+                type: string
+                example: "type,key,value\nSUMMARY,totalClicks,1000\nTIMELINE,2024-01-01,50"
+            application/json:
+              schema:
+                type: object
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: URL not found
+
+  /api/v1/analytics/realtime:
+    get:
+      summary: Get real-time analytics
+      tags: [Analytics]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: "#/components/schemas/RealTimeAnalytics"
+        401:
+          description: Unauthorized

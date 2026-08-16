@@ -1,0 +1,979 @@
+# src/modules/urls/swagger/url.swagger.yaml
+openapi: 3.0.0
+info:
+  title: URL Shortener API - URL Module
+  version: 1.0.0
+  description: URL management endpoints for the URL shortener service
+
+tags:
+  - name: URLs
+    description: URL management operations
+
+paths:
+  /api/v1/urls:
+    get:
+      tags:
+        - URLs
+      summary: Get all URLs for user
+      description: Retrieves paginated list of URLs for the authenticated user
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Items per page
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [created_at, click_count, updated_at]
+            default: created_at
+          description: Sort field
+        - in: query
+          name: order
+          schema:
+            type: string
+            enum: [ASC, DESC]
+            default: DESC
+          description: Sort order
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, inactive, blocked, flagged, expired]
+          description: Filter by status
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search in URL, title, description
+        - in: query
+          name: tags
+          schema:
+            type: string
+          description: Filter by tags
+        - in: query
+          name: date_from
+          schema:
+            type: string
+            format: date
+          description: Filter from date
+        - in: query
+          name: date_to
+          schema:
+            type: string
+            format: date
+          description: Filter to date
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      urls:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/UrlResponse"
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+    post:
+      tags:
+        - URLs
+      summary: Create short URL
+      description: Creates a new short URL for the authenticated user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUrlRequest"
+      responses:
+        "201":
+          description: URL created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: URL created successfully
+                  data:
+                    type: object
+                    properties:
+                      url:
+                        $ref: "#/components/schemas/UrlResponse"
+                      shortCode:
+                        type: string
+                        example: abc123
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/v1/urls/bulk:
+    post:
+      tags:
+        - URLs
+      summary: Bulk create URLs
+      description: Creates multiple short URLs in a single request
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - urls
+              properties:
+                urls:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - original_url
+                    properties:
+                      original_url:
+                        type: string
+                        format: uri
+                        description: Original URL to shorten
+                      custom_code:
+                        type: string
+                        pattern: ^[a-zA-Z0-9_-]{3,20}$
+                        description: Custom short code
+                      title:
+                        type: string
+                        maxLength: 500
+                      tags:
+                        type: string
+                        maxLength: 500
+      responses:
+        "201":
+          description: Bulk creation completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      successful:
+                        type: integer
+                        example: 5
+                      failed:
+                        type: integer
+                        example: 1
+                      details:
+                        type: object
+                        properties:
+                          successful:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                original_url:
+                                  type: string
+                                short_code:
+                                  type: string
+                                short_url:
+                                  type: string
+                          failed:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                original_url:
+                                  type: string
+                                error:
+                                  type: string
+
+  /api/v1/urls/tags/{tag}:
+    get:
+      tags:
+        - URLs
+      summary: Get URLs by tag
+      description: Retrieves URLs associated with a specific tag
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: tag
+          required: true
+          schema:
+            type: string
+          description: Tag name
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      urls:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/UrlResponse"
+                      pagination:
+                        $ref: "#/components/schemas/Pagination"
+
+  /api/v1/urls/{id}:
+    get:
+      tags:
+        - URLs
+      summary: Get URL details
+      description: Retrieves details of a specific URL
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: URL ID
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/UrlResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags:
+        - URLs
+      summary: Update URL
+      description: Updates an existing URL
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: URL ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUrlRequest"
+      responses:
+        "200":
+          description: URL updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: URL updated successfully
+                  data:
+                    $ref: "#/components/schemas/UrlResponse"
+
+    delete:
+      tags:
+        - URLs
+      summary: Delete URL
+      description: Soft deletes a URL
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: URL ID
+      responses:
+        "200":
+          description: URL deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: URL deleted successfully
+
+  /api/v1/urls/{id}/analytics:
+    get:
+      tags:
+        - URLs
+      summary: Get URL analytics
+      description: Retrieves detailed analytics for a URL
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: URL ID
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date
+          description: Start date for analytics
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date
+          description: End date for analytics
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/AnalyticsData"
+
+  /api/v1/urls/{id}/stats:
+    get:
+      tags:
+        - URLs
+      summary: Get URL statistics
+      description: Retrieves statistical summary for a URL
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: URL ID
+      responses:
+        "200":
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/UrlStats"
+
+  /api/v1/urls/{id}/password:
+    post:
+      tags:
+        - URLs
+      summary: Set URL password
+      description: Sets password protection for a URL
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: URL ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+                  minLength: 4
+                  maxLength: 100
+      responses:
+        "200":
+          description: Password set successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Password set successfully
+
+    delete:
+      tags:
+        - URLs
+      summary: Remove URL password
+      description: Removes password protection from a URL
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: URL ID
+      responses:
+        "200":
+          description: Password removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Password removed successfully
+
+  /api/v1/urls/{id}/expire:
+    put:
+      tags:
+        - URLs
+      summary: Set URL expiration
+      description: Sets expiration date for a URL
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: URL ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - expires_at
+              properties:
+                expires_at:
+                  type: string
+                  format: date-time
+                  description: Expiration date (must be in the future)
+      responses:
+        "200":
+          description: Expiration set successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Expiration set successfully
+                  data:
+                    type: object
+                    properties:
+                      expires_at:
+                        type: string
+                        format: date-time
+
+  /{shortCode}:
+    get:
+      tags:
+        - URLs
+      summary: Redirect to original URL
+      description: Redirects to the original URL using the short code
+      parameters:
+        - in: path
+          name: shortCode
+          required: true
+          schema:
+            type: string
+            pattern: ^[a-zA-Z0-9_-]{3,20}$
+          description: Short code
+        - in: header
+          name: x-url-password
+          schema:
+            type: string
+          description: Password for protected URLs
+      responses:
+        "301":
+          description: Redirect to original URL
+          headers:
+            Location:
+              schema:
+                type: string
+              description: Original URL
+        "401":
+          description: Password required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: Password required
+                  requires_password:
+                    type: boolean
+                    example: true
+                  url_id:
+                    type: string
+                    format: uuid
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "410":
+          description: URL expired
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: This URL has expired
+
+components:
+  schemas:
+    CreateUrlRequest:
+      type: object
+      required:
+        - original_url
+      properties:
+        original_url:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: Original URL to shorten
+          example: https://example.com/very/long/url
+        custom_code:
+          type: string
+          pattern: ^[a-zA-Z0-9_-]{3,20}$
+          description: Custom short code
+          example: mylink123
+        title:
+          type: string
+          maxLength: 500
+          description: URL title
+          example: My Awesome Link
+        description:
+          type: string
+          maxLength: 2000
+          description: URL description
+          example: A link to my awesome content
+        tags:
+          type: string
+          maxLength: 500
+          description: Comma-separated tags
+          example: tech,blog,awesome
+        password:
+          type: string
+          minLength: 4
+          maxLength: 100
+          description: Password protection
+          example: mysecretpassword
+        expires_at:
+          type: string
+          format: date-time
+          description: Expiration date
+          example: 2024-12-31T23:59:59Z
+        utm_source:
+          type: string
+          maxLength: 100
+          example: newsletter
+        utm_medium:
+          type: string
+          maxLength: 100
+          example: email
+        utm_campaign:
+          type: string
+          maxLength: 100
+          example: spring_sale
+        utm_term:
+          type: string
+          maxLength: 100
+          example: discount
+        utm_content:
+          type: string
+          maxLength: 100
+          example: banner
+        domain_redirect:
+          type: string
+          format: uri
+          description: Domain redirect URL
+
+    UpdateUrlRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 500
+        description:
+          type: string
+          maxLength: 2000
+        tags:
+          type: string
+          maxLength: 500
+        is_active:
+          type: boolean
+        status:
+          type: string
+          enum: [active, inactive]
+
+    UrlResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        short_code:
+          type: string
+          example: abc123
+        original_url:
+          type: string
+          format: uri
+          example: https://example.com/very/long/url
+        title:
+          type: string
+          example: My Awesome Link
+        description:
+          type: string
+          example: A link to my awesome content
+        tags:
+          type: string
+          example: tech,blog,awesome
+        click_count:
+          type: integer
+          example: 42
+        is_active:
+          type: boolean
+          example: true
+        requires_password:
+          type: boolean
+          example: false
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: 2024-12-31T23:59:59Z
+        last_clicked_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [active, inactive, blocked, flagged, expired]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        short_url:
+          type: string
+          format: uri
+          example: https://short.link/abc123
+        qr_code_url:
+          type: string
+          format: uri
+          example: https://api.short.link/api/v1/qr/550e8400-e29b-41d4-a716-446655440000
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 100
+        pages:
+          type: integer
+          example: 5
+        hasNext:
+          type: boolean
+          example: true
+        hasPrev:
+          type: boolean
+          example: false
+
+    AnalyticsData:
+      type: object
+      properties:
+        total_clicks:
+          type: integer
+          example: 1000
+        unique_visitors:
+          type: integer
+          example: 500
+        devices:
+          type: array
+          items:
+            type: object
+            properties:
+              device_type:
+                type: string
+                example: desktop
+              count:
+                type: integer
+                example: 600
+        browsers:
+          type: array
+          items:
+            type: object
+            properties:
+              browser:
+                type: string
+                example: Chrome
+              count:
+                type: integer
+                example: 700
+        countries:
+          type: array
+          items:
+            type: object
+            properties:
+              country:
+                type: string
+                example: United States
+              count:
+                type: integer
+                example: 400
+        referrers:
+          type: array
+          items:
+            type: object
+            properties:
+              referrer_domain:
+                type: string
+                example: google.com
+              count:
+                type: integer
+                example: 200
+        timeline:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              clicks:
+                type: integer
+
+    UrlStats:
+      type: object
+      properties:
+        total_clicks:
+          type: integer
+          example: 1000
+        unique_visitors:
+          type: integer
+          example: 500
+        last_7_days:
+          type: integer
+          example: 150
+        last_30_days:
+          type: integer
+          example: 450
+        bounce_rate:
+          type: number
+          format: float
+          example: 35.50
+        avg_time_since_click:
+          type: number
+          format: float
+          example: 2.5
+        last_clicked_at:
+          type: string
+          format: date-time
+          nullable: true
+
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: Unauthorized access
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: Resource not found
+
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: Validation error
+              errors:
+                type: array
+                items:
+                  type: string
+
+    RateLimited:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: Too many requests
+              retry_after:
+                type: integer
+                example: 60
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              message:
+                type: string
+                example: Internal server error
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

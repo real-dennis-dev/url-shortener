@@ -1,0 +1,671 @@
+openapi: 3.0.0
+info:
+  title: Authentication API
+  description: Authentication and session management endpoints
+  version: 1.0.0
+tags:
+  - name: Authentication
+    description: User authentication endpoints
+  - name: Sessions
+    description: Session management endpoints
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: User ID
+        email:
+          type: string
+          format: email
+          description: User email
+        fullName:
+          type: string
+          description: User full name
+        role:
+          type: string
+          enum: [user, admin, moderator, support]
+          description: User role
+        plan:
+          type: string
+          enum: [free, pro, business, enterprise]
+          description: User subscription plan
+        status:
+          type: string
+          enum: [active, suspended, banned, pending_verification]
+          description: User account status
+        emailVerified:
+          type: boolean
+          description: Email verification status
+        apiKey:
+          type: string
+          description: API key
+        quotaLimit:
+          type: integer
+          description: URL quota limit
+        totalClicks:
+          type: integer
+          description: Total clicks across all URLs
+        createdAt:
+          type: string
+          format: date-time
+          description: Account creation date
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Session ID
+        ip_address:
+          type: string
+          description: IP address (masked)
+        user_agent:
+          type: string
+          description: User agent
+        last_activity:
+          type: string
+          format: date-time
+          description: Last activity time
+        created_at:
+          type: string
+          format: date-time
+          description: Session creation time
+        expires_at:
+          type: string
+          format: date-time
+          description: Session expiration time
+        is_active:
+          type: boolean
+          description: Session active status
+
+    Tokens:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token
+        refreshToken:
+          type: string
+          description: Refresh token
+        sessionToken:
+          type: string
+          description: Session token
+
+  responses:
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+        data:
+          type: object
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+        error:
+          type: string
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+
+security:
+  - cookieAuth: []
+  - bearerAuth: []
+
+# ========================================
+# AUTHENTICATION ENDPOINTS
+# ========================================
+
+paths:
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register new user
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - fullName
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: "Secure@Pass123"
+                fullName:
+                  type: string
+                  example: "John Doe"
+                plan:
+                  type: string
+                  enum: [free, pro, business, enterprise]
+                  default: free
+                  example: free
+      responses:
+        201:
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/responses/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: "#/components/schemas/User"
+                          apiKey:
+                            type: string
+        400:
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ErrorResponse"
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login user
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  example: "Secure@Pass123"
+                rememberMe:
+                  type: boolean
+                  default: false
+                  example: false
+      responses:
+        200:
+          description: Login successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: access_token=abc123; HttpOnly; Secure; SameSite=Strict
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/responses/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: "#/components/schemas/User"
+                          apiKey:
+                            type: string
+        401:
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ErrorResponse"
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout user
+      operationId: logoutUser
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        200:
+          description: Logout successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: access_token=; HttpOnly; Secure; SameSite=Strict; Max-Age=0
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/SuccessResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ErrorResponse"
+
+  /auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh access token
+      operationId: refreshToken
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: Refresh token (optional if provided in cookie)
+      responses:
+        200:
+          description: Token refreshed successfully
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: access_token=abc123; HttpOnly; Secure; SameSite=Strict
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/responses/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: "#/components/schemas/User"
+        401:
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ErrorResponse"
+
+  /auth/verify-email/{token}:
+    get:
+      tags: [Authentication]
+      summary: Verify email address
+      operationId: verifyEmail
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Email verification token
+      responses:
+        200:
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/SuccessResponse"
+        400:
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ErrorResponse"
+
+  /auth/reset-password:
+    post:
+      tags: [Authentication]
+      summary: Request password reset
+      operationId: requestPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+      responses:
+        200:
+          description: Password reset email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/SuccessResponse"
+        400:
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ErrorResponse"
+
+  /auth/reset-password/{token}:
+    post:
+      tags: [Authentication]
+      summary: Reset password
+      operationId: resetPassword
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Password reset token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - newPassword
+                - confirmPassword
+              properties:
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: "NewSecure@Pass123"
+                confirmPassword:
+                  type: string
+                  format: password
+                  example: "NewSecure@Pass123"
+      responses:
+        200:
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/SuccessResponse"
+        400:
+          description: Invalid token or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ErrorResponse"
+
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current user
+      operationId: getCurrentUser
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        200:
+          description: Current user information
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/responses/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: "#/components/schemas/User"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ErrorResponse"
+
+  /auth/change-password:
+    put:
+      tags: [Authentication]
+      summary: Change user password
+      operationId: changePassword
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+                - confirmPassword
+              properties:
+                currentPassword:
+                  type: string
+                  format: password
+                  example: "Current@Pass123"
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: "NewSecure@Pass123"
+                confirmPassword:
+                  type: string
+                  format: password
+                  example: "NewSecure@Pass123"
+      responses:
+        200:
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/SuccessResponse"
+        400:
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ErrorResponse"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ErrorResponse"
+
+  /auth/api-key/regenerate:
+    post:
+      tags: [Authentication]
+      summary: Regenerate API key
+      operationId: regenerateApiKey
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        200:
+          description: API key regenerated successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/responses/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          apiKey:
+                            type: string
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ErrorResponse"
+
+  # ========================================
+  # SESSION ENDPOINTS
+  # ========================================
+
+  /auth/sessions:
+    get:
+      tags: [Sessions]
+      summary: Get all user sessions
+      operationId: getUserSessions
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        200:
+          description: User sessions retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/responses/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Session"
+        401:
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/ErrorResponse"
+
+  /auth/sessions/stats:
+    get:
+      tags: [Sessions]
+      summary: Get session statistics
+      operationId: getSessionStats
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        200:
+          description: Session statistics retrieved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/responses/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          total_sessions:
+                            type: integer
+                          active_sessions:
+                            type: integer
+                          last_session_created:
+                            type: string
+                            format: date-time
+                          last_activity:
+                            type: string
+                            format: date-time
+        401:
+          description: Unauthorized
+
+  /auth/sessions/current:
+    get:
+      tags: [Sessions]
+      summary: Get current session details
+      operationId: getCurrentSession
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        200:
+          description: Current session details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/responses/SuccessResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Session"
+        401:
+          description: Unauthorized
+        404:
+          description: Session not found
+
+  /auth/sessions/{sessionToken}:
+    delete:
+      tags: [Sessions]
+      summary: Revoke a session
+      operationId: revokeSession
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - name: sessionToken
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Session token to revoke
+      responses:
+        200:
+          description: Session revoked successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/SuccessResponse"
+        401:
+          description: Unauthorized
+        404:
+          description: Session not found
+
+  /auth/sessions/all:
+    delete:
+      tags: [Sessions]
+      summary: Revoke all sessions except current
+      operationId: revokeAllSessions
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      responses:
+        200:
+          description: All sessions revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/responses/SuccessResponse"
+        401:
+          description: Unauthorized
