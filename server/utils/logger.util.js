@@ -53,24 +53,24 @@ const logger = winston.createLogger({
   format: fileFormat,
   transports: [
     // Console transport
-    new winston.transports.Console({
-      format: consoleFormat,
-      handleExceptions: true,
-    }),
-    // File transports
-    new winston.transports.File({
-      filename: path.join("logs", "error.log"),
-      level: "error",
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-      format: fileFormat,
-    }),
-    new winston.transports.File({
-      filename: path.join("logs", "combined.log"),
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-      format: fileFormat,
-    }),
+    // new winston.transports.Console({
+    //   format: consoleFormat,
+    //   handleExceptions: true,
+    // }),
+    // // File transports
+    // new winston.transports.File({
+    //   filename: path.join("logs", "error.log"),
+    //   level: "error",
+    //   maxsize: 5242880, // 5MB
+    //   maxFiles: 5,
+    //   format: fileFormat,
+    // }),
+    // new winston.transports.File({
+    //   filename: path.join("logs", "combined.log"),
+    //   maxsize: 5242880, // 5MB
+    //   maxFiles: 5,
+    //   format: fileFormat,
+    // }),
   ],
   exitOnError: false,
 });
