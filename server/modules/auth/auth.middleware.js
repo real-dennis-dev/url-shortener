@@ -1,5 +1,5 @@
 // auth.middleware.js
-const { AUTH_CONSTANTS } = require("./auth.types.js");
+const AUTH_CONSTANTS = require("./auth.types.js");
 const authUtils = require("./auth.utils.js");
 const AuthService = require("./auth.service.js");
 const SessionService = require("./session.service.js");

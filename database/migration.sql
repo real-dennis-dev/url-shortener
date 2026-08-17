@@ -1,7 +1,3 @@
--- =====================================================
--- URL SHORTENER DATABASE SCHEMA FOR SUPABASE
--- =====================================================
-
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -33,7 +29,7 @@ CREATE TYPE notification_channel_type AS ENUM ('email', 'webhook', 'push');
 CREATE TYPE api_method_type AS ENUM ('GET', 'POST', 'PUT', 'DELETE', 'PATCH');
 
 -- =====================================================
--- USERS TABLE (extends Supabase auth.users)
+-- USERS TABLE (base table – no foreign keys)
 -- =====================================================
 CREATE TABLE public.users (
     id SERIAL PRIMARY KEY,
@@ -52,12 +48,7 @@ CREATE TABLE public.users (
     email_verified BOOLEAN DEFAULT FALSE,
     email_verification_token VARCHAR(255),
     email_verification_expires TIMESTAMP,
-    reset_password_token VARCHAR(255),
-    reset_password_expires TIMESTAMP,
-    login_attempts INTEGER DEFAULT 0,
-    last_logout TIMESTAMP,
     status user_status_type DEFAULT 'active',
-    is_online BOOLEAN DEFAULT FALSE,
     suspended_at TIMESTAMP,
     suspended_reason TEXT,
     deleted_at TIMESTAMP,
@@ -65,6 +56,14 @@ CREATE TABLE public.users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
 );
+
+-- Add remaining columns via ALTER TABLE (avoids any creation-order clashes)
+ALTER TABLE public.users
+    ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS last_logout TIMESTAMP,
+    ADD COLUMN IF NOT EXISTS login_attempts INTEGER DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS reset_password_token VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS reset_password_expires TIMESTAMP;
 
 -- User indexes
 CREATE INDEX idx_users_email ON public.users(email);
@@ -75,7 +74,7 @@ CREATE INDEX idx_users_created_at ON public.users(created_at);
 CREATE INDEX idx_users_status ON public.users(status);
 
 -- =====================================================
--- USER TOKENS (Refresh token management)
+-- USER_TOKENS (depends on users)
 -- =====================================================
 CREATE TABLE public.user_tokens (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -88,14 +87,37 @@ CREATE TABLE public.user_tokens (
     UNIQUE(refresh_token)
 );
 
--- User tokens indexes
 CREATE INDEX idx_user_tokens_user_id ON public.user_tokens(user_id);
 CREATE INDEX idx_user_tokens_refresh_token ON public.user_tokens(refresh_token);
 CREATE INDEX idx_user_tokens_revoked ON public.user_tokens(revoked);
 CREATE INDEX idx_user_tokens_expires ON public.user_tokens(expires_at);
 
 -- =====================================================
--- URLS TABLE (No arrays)
+-- USER_SESSIONS (depends on users)
+-- =====================================================
+CREATE TABLE public.user_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id INTEGER REFERENCES public.users(id) ON DELETE CASCADE,
+    session_token VARCHAR(255) UNIQUE NOT NULL,
+    ip_address INET,
+    user_agent TEXT,
+    location VARCHAR(255),
+    last_activity TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    revoked_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_user_sessions_user_id ON public.user_sessions(user_id);
+CREATE INDEX idx_user_sessions_session_token ON public.user_sessions(session_token);
+CREATE INDEX idx_user_sessions_expires_at ON public.user_sessions(expires_at);
+CREATE INDEX idx_user_sessions_is_active ON public.user_sessions(is_active);
+CREATE INDEX idx_user_sessions_last_activity ON public.user_sessions(last_activity);
+
+-- =====================================================
+-- URLS TABLE (depends on users)
 -- =====================================================
 CREATE TABLE public.urls (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -126,7 +148,6 @@ CREATE TABLE public.urls (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- URL indexes
 CREATE INDEX idx_urls_short_code ON public.urls(short_code);
 CREATE INDEX idx_urls_user_id ON public.urls(user_id);
 CREATE INDEX idx_urls_is_active ON public.urls(is_active);
@@ -138,7 +159,7 @@ CREATE INDEX idx_urls_user_active ON public.urls(user_id, is_active);
 CREATE INDEX idx_urls_tags ON public.urls(tags);
 
 -- =====================================================
--- CLICKS TABLE (Detailed click analytics)
+-- CLICKS TABLE (depends on urls)
 -- =====================================================
 CREATE TABLE public.clicks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -164,7 +185,6 @@ CREATE TABLE public.clicks (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Clicks indexes
 CREATE INDEX idx_clicks_url_id ON public.clicks(url_id);
 CREATE INDEX idx_clicks_created_at ON public.clicks(created_at);
 CREATE INDEX idx_clicks_device_type ON public.clicks(device_type);
@@ -172,11 +192,11 @@ CREATE INDEX idx_clicks_browser ON public.clicks(browser);
 CREATE INDEX idx_clicks_country ON public.clicks(country);
 CREATE INDEX idx_clicks_url_created ON public.clicks(url_id, created_at DESC);
 CREATE INDEX idx_clicks_session ON public.clicks(session_id);
-CREATE INDEX idx_clicks_url_date ON public.clicks(url_id, DATE(created_at));
+CREATE INDEX idx_clicks_url_date ON public.clicks(url_id, (created_at::date));
 CREATE INDEX idx_clicks_device_country ON public.clicks(device_type, country);
 
 -- =====================================================
--- ANALYTICS_SUMMARY TABLE (Aggregated analytics)
+-- ANALYTICS_SUMMARY TABLE (depends on urls)
 -- =====================================================
 CREATE TABLE public.analytics_summary (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -195,12 +215,11 @@ CREATE TABLE public.analytics_summary (
     UNIQUE(url_id, date)
 );
 
--- Analytics summary indexes
 CREATE INDEX idx_analytics_summary_url_id ON public.analytics_summary(url_id);
 CREATE INDEX idx_analytics_summary_date ON public.analytics_summary(date);
 
 -- =====================================================
--- BULK_UPLOADS TABLE
+-- BULK_UPLOADS TABLE (depends on users)
 -- =====================================================
 CREATE TABLE public.bulk_uploads (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -215,13 +234,12 @@ CREATE TABLE public.bulk_uploads (
     completed_at TIMESTAMP
 );
 
--- Bulk uploads indexes
 CREATE INDEX idx_bulk_uploads_user_id ON public.bulk_uploads(user_id);
 CREATE INDEX idx_bulk_uploads_status ON public.bulk_uploads(status);
 CREATE INDEX idx_bulk_uploads_created_at ON public.bulk_uploads(created_at);
 
 -- =====================================================
--- ABUSE_REPORTS TABLE
+-- ABUSE_REPORTS TABLE (depends on urls + users)
 -- =====================================================
 CREATE TABLE public.abuse_reports (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -237,14 +255,13 @@ CREATE TABLE public.abuse_reports (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Abuse reports indexes
 CREATE INDEX idx_abuse_reports_url_id ON public.abuse_reports(url_id);
 CREATE INDEX idx_abuse_reports_status ON public.abuse_reports(status);
 CREATE INDEX idx_abuse_reports_created_at ON public.abuse_reports(created_at);
 CREATE INDEX idx_abuse_reports_reason ON public.abuse_reports(reason);
 
 -- =====================================================
--- MODERATION_LOGS TABLE
+-- MODERATION_LOGS TABLE (depends on urls + users)
 -- =====================================================
 CREATE TABLE public.moderation_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -256,13 +273,12 @@ CREATE TABLE public.moderation_logs (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Moderation logs indexes
 CREATE INDEX idx_moderation_logs_url_id ON public.moderation_logs(url_id);
 CREATE INDEX idx_moderation_logs_admin_id ON public.moderation_logs(admin_id);
 CREATE INDEX idx_moderation_logs_created_at ON public.moderation_logs(created_at);
 
 -- =====================================================
--- QR_SCANS TABLE
+-- QR_SCANS TABLE (depends on urls)
 -- =====================================================
 CREATE TABLE public.qr_scans (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -277,12 +293,11 @@ CREATE TABLE public.qr_scans (
     location_longitude DECIMAL(11,8)
 );
 
--- QR scans indexes
 CREATE INDEX idx_qr_scans_url_id ON public.qr_scans(url_id);
 CREATE INDEX idx_qr_scans_scanned_at ON public.qr_scans(scanned_at);
 
 -- =====================================================
--- API_LOGS TABLE
+-- API_LOGS TABLE (depends on users)
 -- =====================================================
 CREATE TABLE public.api_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -299,7 +314,6 @@ CREATE TABLE public.api_logs (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- API logs indexes
 CREATE INDEX idx_api_logs_user_id ON public.api_logs(user_id);
 CREATE INDEX idx_api_logs_created_at ON public.api_logs(created_at);
 CREATE INDEX idx_api_logs_api_key ON public.api_logs(api_key);
@@ -307,7 +321,7 @@ CREATE INDEX idx_api_logs_endpoint ON public.api_logs(endpoint);
 CREATE INDEX idx_api_logs_status ON public.api_logs(status_code);
 
 -- =====================================================
--- NOTIFICATIONS TABLE
+-- NOTIFICATIONS TABLE (depends on users)
 -- =====================================================
 CREATE TABLE public.notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -322,14 +336,13 @@ CREATE TABLE public.notifications (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Notifications indexes
 CREATE INDEX idx_notifications_user_id ON public.notifications(user_id);
 CREATE INDEX idx_notifications_is_read ON public.notifications(is_read);
 CREATE INDEX idx_notifications_created_at ON public.notifications(created_at);
 CREATE INDEX idx_notifications_type ON public.notifications(type);
 
 -- =====================================================
--- DOMAIN_BLACKLIST TABLE (For security)
+-- DOMAIN_BLACKLIST TABLE (depends on users)
 -- =====================================================
 CREATE TABLE public.domain_blacklist (
     id SERIAL PRIMARY KEY,
@@ -340,12 +353,11 @@ CREATE TABLE public.domain_blacklist (
     expires_at TIMESTAMP
 );
 
--- Domain blacklist indexes
 CREATE INDEX idx_domain_blacklist_domain ON public.domain_blacklist(domain);
 CREATE INDEX idx_domain_blacklist_expires ON public.domain_blacklist(expires_at);
 
 -- =====================================================
--- SYSTEM_SETTINGS TABLE
+-- SYSTEM_SETTINGS TABLE (depends on users)
 -- =====================================================
 CREATE TABLE public.system_settings (
     id SERIAL PRIMARY KEY,
@@ -356,11 +368,10 @@ CREATE TABLE public.system_settings (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- System settings indexes
 CREATE INDEX idx_system_settings_key ON public.system_settings(key);
 
 -- =====================================================
--- WEBHOOKS TABLE (For external integrations)
+-- WEBHOOKS TABLE (depends on users)
 -- =====================================================
 CREATE TABLE public.webhooks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -375,61 +386,30 @@ CREATE TABLE public.webhooks (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Webhooks indexes
 CREATE INDEX idx_webhooks_user_id ON public.webhooks(user_id);
 CREATE INDEX idx_webhooks_active ON public.webhooks(is_active);
 
--- Create user_sessions table for session management
-CREATE TABLE public.user_sessions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id INTEGER REFERENCES public.users(id) ON DELETE CASCADE,
-    session_token VARCHAR(255) UNIQUE NOT NULL,
-    ip_address INET,
-    user_agent TEXT,
-    location VARCHAR(255),
-    last_activity TIMESTAMP,
-    expires_at TIMESTAMP NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    revoked_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Create indexes
-CREATE INDEX idx_user_sessions_user_id ON public.user_sessions(user_id);
-CREATE INDEX idx_user_sessions_session_token ON public.user_sessions(session_token);
-CREATE INDEX idx_user_sessions_expires_at ON public.user_sessions(expires_at);
-CREATE INDEX idx_user_sessions_is_active ON public.user_sessions(is_active);
-CREATE INDEX idx_user_sessions_last_activity ON public.user_sessions(last_activity);
-
--- Update users table with additional fields if not exists
-ALTER TABLE public.users 
-ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE,
-ADD COLUMN IF NOT EXISTS last_logout TIMESTAMP,
-ADD COLUMN IF NOT EXISTS login_attempts INTEGER DEFAULT 0,
-ADD COLUMN IF NOT EXISTS reset_password_token VARCHAR(255),
-ADD COLUMN IF NOT EXISTS reset_password_expires TIMESTAMP;
 
 -- =====================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- =====================================================
-ALTER TABLE public.user_sessions ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.user_sessions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY user_sessions_select_own ON public.user_sessions
-    FOR SELECT USING (auth.uid()::INTEGER = user_id);
+-- CREATE POLICY user_sessions_select_own ON public.user_sessions
+--     FOR SELECT USING (auth.uid()::INTEGER = user_id);
 
-CREATE POLICY user_sessions_insert_own ON public.user_sessions
-    FOR INSERT WITH CHECK (auth.uid()::INTEGER = user_id);
+-- CREATE POLICY user_sessions_insert_own ON public.user_sessions
+--     FOR INSERT WITH CHECK (auth.uid()::INTEGER = user_id);
 
-CREATE POLICY user_sessions_update_own ON public.user_sessions
-    FOR UPDATE USING (auth.uid()::INTEGER = user_id);
+-- CREATE POLICY user_sessions_update_own ON public.user_sessions
+--     FOR UPDATE USING (auth.uid()::INTEGER = user_id);
 
-CREATE POLICY user_sessions_delete_own ON public.user_sessions
-    FOR DELETE USING (auth.uid()::INTEGER = user_id);
+-- CREATE POLICY user_sessions_delete_own ON public.user_sessions
+--     FOR DELETE USING (auth.uid()::INTEGER = user_id);
 
--- Admin policies for user_sessions
-CREATE POLICY admin_all_access_user_sessions ON public.user_sessions
-    FOR ALL USING (auth.jwt() ->> 'role' = 'admin');
+-- -- Admin policies for user_sessions
+-- CREATE POLICY admin_all_access_user_sessions ON public.user_sessions
+--     FOR ALL USING (auth.jwt() ->> 'role' = 'admin');
 
 
 -- -- Enable RLS on all tables

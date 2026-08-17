@@ -18,31 +18,39 @@ class SessionService {
   async createSession(userId, ipAddress, userAgent, rememberMe = false) {
     try {
       const sessionToken = authUtils.generateSessionToken();
-      const expiresIn = rememberMe ? "30 days" : "24 hours";
+
+      const expiresInSeconds = rememberMe
+        ? 30 * 24 * 60 * 60 // 30 days
+        : 24 * 60 * 60; // 24 hours
 
       const result = await databaseService.query(
         `INSERT INTO user_sessions 
-         (user_id, session_token, ip_address, user_agent, 
-          expires_at, last_activity, is_active, created_at)
-         VALUES ($1, $2, $3, $4, NOW() + INTERVAL $5, NOW(), true, NOW())
-         RETURNING id, session_token, expires_at, created_at`,
-        [userId, sessionToken, ipAddress, userAgent, expiresIn]
+       (
+         user_id,
+         session_token,
+         ip_address,
+         user_agent,
+         expires_at,
+         last_activity,
+         is_active,
+         created_at
+       )
+       VALUES (
+         $1,
+         $2,
+         $3,
+         $4,
+         NOW() + ($5 * INTERVAL '1 second'),
+         NOW(),
+         true,
+         NOW()
+       )
+       RETURNING id, session_token, expires_at, created_at`,
+        [userId, sessionToken, ipAddress, userAgent, expiresInSeconds]
       );
 
       const session = result.rows[0];
 
-      // Cache session
-      await cacheService.set(
-        `session:${sessionToken}`,
-        {
-          id: session.id,
-          userId: userId,
-          expiresAt: session.expires_at,
-        },
-        3600
-      );
-
-      // Remove old inactive sessions (keep last 5)
       await this.cleanOldSessions(userId, 5);
 
       return session;
@@ -247,9 +255,9 @@ class SessionService {
         );
 
         // Clear cache for each session
-        for (const session of sessions.rows) {
-          await cacheService.delete(`session:${session.session_token}`);
-        }
+        // for (const session of sessions.rows) {
+        //   await cacheService.delete(`session:${session.session_token}`);
+        // }
       }
     } catch (error) {
       console.error("Clean old sessions error:", error);

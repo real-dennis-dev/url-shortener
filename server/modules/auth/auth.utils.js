@@ -3,7 +3,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const validator = require("validator");
-const { AUTH_CONSTANTS } = require("./auth.types.js");
+const AUTH_CONSTANTS = require("./auth.types.js");
 const jwtConfig = require("../../config/jwt.config.js");
 
 const authUtils = {

@@ -169,7 +169,9 @@ const globalMiddleware = {
         stripUnknown: true,
       };
 
-      const { error, value } = schema.validate(req.body, options);
+      const joiSchema = schema.body || schema;
+
+      const { error, value } = joiSchema.validate(req.body, options);
 
       if (error) {
         const details = error.details.map((detail) => ({
@@ -183,7 +185,7 @@ const globalMiddleware = {
       }
 
       req.body = value;
-      next();
+      return next();
     };
   },
 
@@ -199,7 +201,9 @@ const globalMiddleware = {
         stripUnknown: true,
       };
 
-      const { error, value } = schema.validate(req.query, options);
+      const joiSchema = schema.query || schema;
+
+      const { error, value } = joiSchema.validate(req.query, options);
 
       if (error) {
         const details = error.details.map((detail) => ({
@@ -217,8 +221,10 @@ const globalMiddleware = {
         );
       }
 
-      req.query = value;
-      next();
+      // Important: see note below about req.query
+      Object.assign(req.query, value);
+
+      return next();
     };
   },
 
@@ -234,7 +240,9 @@ const globalMiddleware = {
         stripUnknown: true,
       };
 
-      const { error, value } = schema.validate(req.params, options);
+      const joiSchema = schema.params || schema;
+
+      const { error, value } = joiSchema.validate(req.params, options);
 
       if (error) {
         const details = error.details.map((detail) => ({
@@ -252,8 +260,9 @@ const globalMiddleware = {
         );
       }
 
-      req.params = value;
-      next();
+      Object.assign(req.params, value);
+
+      return next();
     };
   },
 
@@ -322,12 +331,17 @@ const globalMiddleware = {
     res.on("finish", () => {
       const diff = process.hrtime(start);
       const responseTime = (diff[0] * 1e3 + diff[1] / 1e6).toFixed(2);
-      res.setHeader("X-Response-Time", `${responseTime}ms`);
+
+      logger.info("Response completed", {
+        method: req.method,
+        url: req.originalUrl,
+        statusCode: res.statusCode,
+        responseTime: `${responseTime}ms`,
+      });
     });
 
     next();
   },
-
   /**
    * IP Address Extraction
    * Extracts client IP address from various sources
@@ -427,4 +441,23 @@ const globalMiddleware = {
   },
 };
 
-module.exports = globalMiddleware;
+module.exports = {
+  globalMiddleware,
+  corsHandler: globalMiddleware.corsHandler,
+  requestLogger: globalMiddleware.requestLogger,
+  errorHandler: globalMiddleware.errorHandler,
+
+  validateRequest: globalMiddleware.validateRequest,
+  validateQuery: globalMiddleware.validateQuery,
+  validateParams: globalMiddleware.validateParams,
+
+  compressionHandler: globalMiddleware.compressionHandler,
+  securityHeaders: globalMiddleware.securityHeaders,
+
+  requestIdGenerator: globalMiddleware.requestIdGenerator,
+  extractIpAddress: globalMiddleware.extractIpAddress,
+  parseUserAgent: globalMiddleware.parseUserAgent,
+
+  requestSizeLimiter: globalMiddleware.requestSizeLimiter,
+  rateLimiter: globalMiddleware.rateLimiter,
+};

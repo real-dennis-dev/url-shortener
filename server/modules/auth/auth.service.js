@@ -5,6 +5,7 @@ const DatabaseService = require("../../services/database.service.js");
 const CacheService = require("../../services/cache.service.js");
 const EmailService = require("../../services/email.service.js");
 const SessionService = require("./session.service.js");
+const jwtConfig = require("../../config/jwt.config.js");
 
 const databaseService = new DatabaseService();
 const cacheService = new CacheService();
@@ -61,9 +62,9 @@ class AuthService {
       const result = await databaseService.query(
         `INSERT INTO users 
          (email, password_hash, full_name, plan, api_key, 
-          email_verification_token, email_verification_expires, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING id, email, full_name, plan, role, status, email_verified, api_key, created_at`,
+          email_verification_token, email_verification_expires)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id, email, full_name, plan, role, email_verified, api_key, created_at`,
         [
           email,
           hashedPassword,
@@ -72,18 +73,17 @@ class AuthService {
           apiKey,
           verificationToken,
           verificationExpires,
-          AUTH_CONSTANTS.STATUS.PENDING_VERIFICATION,
         ]
       );
 
       const user = result.rows[0];
 
       // Send verification email
-      await emailService.sendVerificationEmail(
-        user.id,
-        user.email,
-        verificationToken
-      );
+      // await emailService.sendVerificationEmail(
+      //   user.id,
+      //   user.email,
+      //   verificationToken
+      // );
 
       // Generate tokens
       const tokens = await this.generateTokens(user.id);
@@ -97,11 +97,11 @@ class AuthService {
       );
 
       // Cache user data
-      await cacheService.set(
-        `user:${user.id}`,
-        user,
-        3600 // 1 hour
-      );
+      // await cacheService.set(
+      //   `user:${user.id}`,
+      //   user,
+      //   3600 // 1 hour
+      // );
 
       return {
         user: {
@@ -199,11 +199,11 @@ class AuthService {
       );
 
       // Cache user data
-      await cacheService.set(
-        `user:${user.id}`,
-        user,
-        3600 // 1 hour
-      );
+      // await cacheService.set(
+      //   `user:${user.id}`,
+      //   user,
+      //   3600 // 1 hour
+      // );
 
       return {
         user: {

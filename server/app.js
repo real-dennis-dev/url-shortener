@@ -6,7 +6,7 @@ const cookieParser = require("cookie-parser");
 const authModule = require("./modules/auth/auth.routes.js");
 
 // Global middleware
-const globalMiddleware = require("./middleware/global.middleware.js");
+const { globalMiddleware } = require("./middleware/global.middleware.js");
 
 const app = express();
 
