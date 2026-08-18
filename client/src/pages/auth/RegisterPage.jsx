@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { Button, Input, Select } from "../common";
+import { Button, Input, Select } from "../../components/common";
 
 const RegisterPage = () => {
   const navigate = useNavigate();

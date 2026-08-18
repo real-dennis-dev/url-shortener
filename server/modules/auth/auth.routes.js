@@ -2,7 +2,7 @@
 const express = require("express");
 const AuthController = require("./auth.controller.js");
 const SessionController = require("./session.controller.js");
-const authMiddleware = require("./auth.middleware.js");
+const authMiddleware = require("../../middleware/auth.middleware.js");
 const authValidation = require("./auth.validator.js");
 const { validateRequest } = require("../../middleware/global.middleware.js");
 
@@ -56,40 +56,66 @@ router.post(
 
 // ============ Protected Routes ============
 
-// Apply authentication middleware
-router.use(authMiddleware.authenticate);
-
 // Current user
-router.get("/me", authController.getCurrentUser);
+router.get(
+  "/me",
+  authMiddleware.optionalAuthenticate,
+  authController.getCurrentUser
+);
 
 // Logout
-router.post("/logout", authController.logout);
+router.post("/logout", authMiddleware.authenticate, authController.logout);
 
 // Change password
 router.put(
   "/change-password",
+  authMiddleware.authenticate,
   validateRequest(authValidation.changePassword),
   authController.changePassword
 );
 
 // Regenerate API key
-router.post("/api-key/regenerate", authController.regenerateApiKey);
+router.post(
+  "/api-key/regenerate",
+  authMiddleware.authenticate,
+  authController.regenerateApiKey
+);
 
 // ============ Session Routes ============
 
 // Get all sessions
-router.get("/sessions", sessionController.getSessions);
+router.get(
+  "/sessions",
+  authMiddleware.authenticate,
+  sessionController.getSessions
+);
 
 // Get session stats
-router.get("/sessions/stats", sessionController.getSessionStats);
+router.get(
+  "/sessions/stats",
+  authMiddleware.authenticate,
+  sessionController.getSessionStats
+);
 
 // Get current session
-router.get("/sessions/current", sessionController.getCurrentSession);
+router.get(
+  "/sessions/current",
+  authMiddleware.authenticate,
+  sessionController.getCurrentSession
+);
 
 // Revoke specific session
-router.delete("/sessions/:sessionToken", sessionController.revokeSession);
+router.delete(
+  "/sessions/:sessionToken",
+  authMiddleware.authenticate,
+  sessionController.revokeSession
+);
 
 // Revoke all sessions
-router.delete("/sessions/all", sessionController.revokeAllSessions);
+router.delete(
+  "/sessions/all",
+  authMiddleware.authenticate,
+  sessionController.revokeAllSessions
+);
 
 module.exports = router;

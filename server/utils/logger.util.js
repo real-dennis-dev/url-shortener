@@ -53,10 +53,10 @@ const logger = winston.createLogger({
   format: fileFormat,
   transports: [
     // Console transport
-    // new winston.transports.Console({
-    //   format: consoleFormat,
-    //   handleExceptions: true,
-    // }),
+    new winston.transports.Console({
+      format: consoleFormat,
+      handleExceptions: true,
+    }),
     // // File transports
     // new winston.transports.File({
     //   filename: path.join("logs", "error.log"),

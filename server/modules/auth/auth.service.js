@@ -1,5 +1,6 @@
 // auth.service.js
-const { AUTH_CONSTANTS } = require("./auth.types.js");
+const AUTH_CONSTANTS = require("./auth.types.js");
+const { ApiError } = require("../../utils/error.util");
 const authUtils = require("./auth.utils.js");
 const DatabaseService = require("../../services/database.service.js");
 const CacheService = require("../../services/cache.service.js");
@@ -36,7 +37,7 @@ class AuthService {
       );
 
       if (existingUser.rows.length > 0) {
-        throw new Error("User already exists with this email");
+        throw new ApiError(409, "User already exists with this email");
       }
 
       // Check password strength

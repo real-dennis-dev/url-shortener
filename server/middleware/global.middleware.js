@@ -1,4 +1,6 @@
 // src/middleware/global.middleware.js
+const dotenv = require("dotenv");
+dotenv.config();
 const cors = require("cors");
 const morgan = require("morgan");
 const compression = require("compression");
@@ -18,20 +20,41 @@ const globalMiddleware = {
    * Configures Cross-Origin Resource Sharing headers
    */
   corsHandler: (req, res, next) => {
+    const allowedOrigins = process.env.CORS_ORIGIN?.split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+
     const corsOptions = {
-      origin: process.env.CORS_ORIGIN
-        ? process.env.CORS_ORIGIN.split(",")
-        : "*",
+      origin: (origin, callback) => {
+        // Allow requests with no Origin header
+        // e.g. Postman, server-to-server requests, etc.
+        if (!origin) {
+          return callback(null, true);
+        }
+
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+
+        return callback(
+          new Error(`CORS policy: Origin ${origin} is not allowed`)
+        );
+      },
+
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+
       allowedHeaders: [
         "Content-Type",
         "Authorization",
         "X-API-Key",
         "X-Request-ID",
       ],
+
       exposedHeaders: ["X-Request-ID", "X-Response-Time"],
+
       credentials: true,
-      maxAge: 86400, // 24 hours
+
+      maxAge: 86400,
     };
 
     return cors(corsOptions)(req, res, next);
@@ -77,82 +100,126 @@ const globalMiddleware = {
    * Error Handler
    * Handles and formats all errors
    */
+
   errorHandler: (err, req, res, next) => {
-    // Log error
+    /*
+   |--------------------------------------------------------------------------
+   | Log complete error internally
+   |--------------------------------------------------------------------------
+   */
+
     logger.error("Error occurred", {
-      error: err.message,
+      name: err.name,
+      message: err.message,
       stack: err.stack,
+      statusCode: err.statusCode,
       method: req.method,
-      url: req.url,
+      url: req.originalUrl,
       requestId: req.id,
       ip: req.ip,
     });
 
-    // Handle known errors
+    /*
+   |--------------------------------------------------------------------------
+   | API Errors
+   |--------------------------------------------------------------------------
+   */
+
     if (err instanceof ApiError) {
       return res.status(err.statusCode).json({
         success: false,
         error: {
-          code: err.code,
+          statusCode: err.statusCode,
           message: err.message,
-          details: err.details,
+          ...(err.details !== null &&
+            err.details !== undefined && {
+              details: err.details,
+            }),
           requestId: req.id,
         },
       });
     }
 
-    // Handle validation errors
+    /*
+   |--------------------------------------------------------------------------
+   | Validation Errors
+   |--------------------------------------------------------------------------
+   */
+
     if (err.name === "ValidationError") {
       return res.status(400).json({
         success: false,
         error: {
-          code: "VALIDATION_ERROR",
-          message: "Validation failed",
-          details: err.details || err.message,
+          statusCode: 400,
+          message: err.message || "Validation failed",
+          ...(err.details && {
+            details: err.details,
+          }),
           requestId: req.id,
         },
       });
     }
 
-    // Handle JWT errors
+    /*
+   |--------------------------------------------------------------------------
+   | JWT Errors
+   |--------------------------------------------------------------------------
+   */
+
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({
+        success: false,
+        error: {
+          statusCode: 401,
+          message: "Token expired",
+          requestId: req.id,
+        },
+      });
+    }
+
     if (err.name === "JsonWebTokenError") {
       return res.status(401).json({
         success: false,
         error: {
-          code: "INVALID_TOKEN",
-          message: "Invalid or expired token",
+          statusCode: 401,
+          message: "Invalid token",
           requestId: req.id,
         },
       });
     }
 
-    // Handle database errors
+    /*
+   |--------------------------------------------------------------------------
+   | PostgreSQL Errors
+   |--------------------------------------------------------------------------
+   */
+
     if (err.code && err.code.startsWith("23")) {
       return res.status(409).json({
         success: false,
         error: {
-          code: "DUPLICATE_ERROR",
-          message: "Duplicate entry found",
-          details: err.detail,
+          statusCode: 409,
+          message: "A resource with the provided information already exists",
           requestId: req.id,
         },
       });
     }
 
-    // Default error response
-    const statusCode = err.statusCode || 500;
-    const message =
-      process.env.NODE_ENV === "production"
-        ? "Internal server error"
-        : err.message || "Internal server error";
+    /*
+   |--------------------------------------------------------------------------
+   | Unknown / Unexpected Errors
+   |--------------------------------------------------------------------------
+   */
 
-    res.status(statusCode).json({
+    return res.status(500).json({
       success: false,
       error: {
-        code: err.code || "INTERNAL_ERROR",
-        message: message,
+        statusCode: 500,
+        message:
+          process.env.NODE_ENV === "production"
+            ? "Internal server error"
+            : err.message || "Internal server error",
         requestId: req.id,
-        ...(process.env.NODE_ENV !== "production" && { stack: err.stack }),
       },
     });
   },

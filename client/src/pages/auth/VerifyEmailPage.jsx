@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { LoadingSpinner, Alert } from "../common";
+import { LoadingSpinner, Alert } from "../../components/common";
 
 const VerifyEmailPage = () => {
   const { token } = useParams();

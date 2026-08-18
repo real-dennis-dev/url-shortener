@@ -15,8 +15,10 @@ export function AuthProvider({ children }) {
       const authData = response.data;
 
       if (authData.isAuthenticated) {
+        console.log(authData);
         setUser(authData.user);
       } else {
+        console.log(authData);
         setUser(null);
       }
     } catch (err) {

@@ -1,8 +1,8 @@
 // auth.middleware.js
-const AUTH_CONSTANTS = require("./auth.types.js");
-const authUtils = require("./auth.utils.js");
-const AuthService = require("./auth.service.js");
-const SessionService = require("./session.service.js");
+const AUTH_CONSTANTS = require("../modules/auth/auth.types.js");
+const authUtils = require("../modules/auth/auth.utils.js");
+const AuthService = require("../modules/auth/auth.service.js");
+const SessionService = require("../modules/auth/session.service.js");
 
 const authService = new AuthService();
 const sessionService = new SessionService();
@@ -105,6 +105,208 @@ const authMiddleware = {
         message: "Invalid authentication credentials.",
         error: error.message,
       });
+    }
+  },
+
+  optionalAuthenticate: async (req, res, next) => {
+    try {
+      const ACCESS_COOKIE = AUTH_CONSTANTS.COOKIE_NAMES.ACCESS_TOKEN;
+
+      const REFRESH_COOKIE = AUTH_CONSTANTS.COOKIE_NAMES.REFRESH_TOKEN;
+
+      const SESSION_COOKIE = AUTH_CONSTANTS.COOKIE_NAMES.SESSION_TOKEN;
+
+      const accessToken = req.cookies?.[ACCESS_COOKIE];
+      const refreshToken = req.cookies?.[REFRESH_COOKIE];
+      const sessionToken = req.cookies?.[SESSION_COOKIE];
+
+      /*
+    |--------------------------------------------------------------------------
+    | Helper: attach authenticated user
+    |--------------------------------------------------------------------------
+    */
+
+      const authenticateUser = async (user, sessionToken) => {
+        if (!user) {
+          req.user = null;
+          return false;
+        }
+
+        if (user.status !== AUTH_CONSTANTS.STATUS.ACTIVE) {
+          req.user = null;
+          return false;
+        }
+
+        /*
+      |--------------------------------------------------------------------------
+      | Validate session
+      |--------------------------------------------------------------------------
+      */
+
+        if (sessionToken) {
+          const isValid = await sessionService.validateSession(
+            sessionToken,
+            user.id
+          );
+
+          if (!isValid) {
+            req.user = null;
+            return false;
+          }
+
+          // Don't allow session activity update to break authentication
+          try {
+            await sessionService.updateSessionActivity(sessionToken);
+          } catch (error) {
+            console.error("Failed to update session activity:", error);
+          }
+        }
+
+        /*
+      |--------------------------------------------------------------------------
+      | Attach authenticated user
+      |--------------------------------------------------------------------------
+      */
+
+        req.user = {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          plan: user.plan,
+          fullName: user.full_name,
+          status: user.status,
+          emailVerified: user.email_verified,
+          apiKey: user.api_key,
+        };
+
+        return true;
+      };
+
+      /*
+    |--------------------------------------------------------------------------
+    | No access token
+    |--------------------------------------------------------------------------
+    |
+    | If there is no access token, try refresh authentication.
+    |
+    */
+
+      if (!accessToken) {
+        if (!refreshToken || !sessionToken) {
+          req.user = null;
+          return next();
+        }
+
+        return await refreshAuthentication(
+          req,
+          res,
+          next,
+          refreshToken,
+          sessionToken,
+          authenticateUser
+        );
+      }
+
+      /*
+    |--------------------------------------------------------------------------
+    | Verify access token
+    |--------------------------------------------------------------------------
+    */
+
+      let decoded;
+
+      try {
+        decoded = authUtils.verifyJWT(accessToken, "access");
+      } catch (error) {
+        /*
+      |--------------------------------------------------------------------------
+      | IMPORTANT
+      |--------------------------------------------------------------------------
+      | Only attempt refresh if the access token is actually expired.
+      |
+      | If the JWT is malformed, tampered with, has an invalid signature,
+      | wrong type, etc., don't blindly refresh from it.
+      |--------------------------------------------------------------------------
+      */
+
+        if (
+          error.name === "TokenExpiredError" ||
+          error.code === "TOKEN_EXPIRED"
+        ) {
+          if (!refreshToken || !sessionToken) {
+            req.user = null;
+            return next();
+          }
+
+          return await refreshAuthentication(
+            req,
+            res,
+            next,
+            refreshToken,
+            sessionToken,
+            authenticateUser
+          );
+        }
+
+        req.user = null;
+        return next();
+      }
+
+      /*
+    |--------------------------------------------------------------------------
+    | Check expiration
+    |--------------------------------------------------------------------------
+    */
+
+      if (authUtils.isTokenExpired(decoded)) {
+        if (!refreshToken || !sessionToken) {
+          req.user = null;
+          return next();
+        }
+
+        return await refreshAuthentication(
+          req,
+          res,
+          next,
+          refreshToken,
+          sessionToken,
+          authenticateUser
+        );
+      }
+
+      /*
+    |--------------------------------------------------------------------------
+    | Get user
+    |--------------------------------------------------------------------------
+    */
+
+      const user = await authService.getUserById(decoded.id);
+
+      if (!user) {
+        req.user = null;
+        return next();
+      }
+
+      /*
+    |--------------------------------------------------------------------------
+    | Authenticate user + validate session
+    |--------------------------------------------------------------------------
+    */
+
+      await authenticateUser(user, sessionToken);
+
+      return next();
+    } catch (error) {
+      /*
+    |--------------------------------------------------------------------------
+    | Optional authentication must NEVER block the request
+    |--------------------------------------------------------------------------
+    */
+
+      console.error("Optional authentication error:", error);
+
+      req.user = null;
+      return next();
     }
   },
 

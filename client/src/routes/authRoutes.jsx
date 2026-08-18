@@ -1,9 +1,11 @@
-// routes/authRoutes.jsx
-import { Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
-import { LoadingSpinner } from "../components/common/LoadingSpinner";
 
-// Lazy load components for better performance
+import ProtectedRoute from "./ProtectedRoute";
+import PublicRoute from "./PublicRoute";
+import { LoadingSpinner } from "../components/common";
+
+// Lazy-loaded authentication pages
 const LoginPage = lazy(() => import("../pages/auth/LoginPage"));
 const RegisterPage = lazy(() => import("../pages/auth/RegisterPage"));
 const ForgotPasswordPage = lazy(() =>
@@ -11,128 +13,90 @@ const ForgotPasswordPage = lazy(() =>
 );
 const ResetPasswordPage = lazy(() => import("../pages/auth/ResetPasswordPage"));
 const VerifyEmailPage = lazy(() => import("../pages/auth/VerifyEmailPage"));
+
+// Protected auth-related pages
 const ProfilePage = lazy(() => import("../pages/auth/ProfilePage"));
 const SessionsPage = lazy(() => import("../pages/auth/SessionsPage"));
 
-// Protected route wrapper component
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+function AuthRoutes() {
+  return (
+    <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <Suspense fallback={<LoadingSpinner size="lg" />}>
+          <Routes>
+            {/* /auth */}
+            <Route index element={<Navigate to="/auth/login" replace />} />
 
-  if (loading) {
-    return <LoadingSpinner size="lg" />;
-  }
+            {/* /auth/login */}
+            <Route
+              path="login"
+              element={
+                <PublicRoute>
+                  <LoginPage />
+                </PublicRoute>
+              }
+            />
 
-  if (!isAuthenticated) {
-    return <Navigate to="/auth/login" replace />;
-  }
+            {/* /auth/register */}
+            <Route
+              path="register"
+              element={
+                <PublicRoute>
+                  <RegisterPage />
+                </PublicRoute>
+              }
+            />
 
-  return children;
-};
+            {/* /auth/forgot-password */}
+            <Route
+              path="forgot-password"
+              element={
+                <PublicRoute>
+                  <ForgotPasswordPage />
+                </PublicRoute>
+              }
+            />
 
-// Public route wrapper (redirects to dashboard if authenticated)
-const PublicRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+            {/* /auth/reset-password/:token */}
+            <Route
+              path="reset-password/:token"
+              element={
+                <PublicRoute>
+                  <ResetPasswordPage />
+                </PublicRoute>
+              }
+            />
 
-  if (loading) {
-    return <LoadingSpinner size="lg" />;
-  }
+            {/* /auth/verify-email/:token */}
+            <Route path="verify-email/:token" element={<VerifyEmailPage />} />
 
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
+            {/* /auth/profile */}
+            <Route
+              path="profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
 
-  return children;
-};
+            {/* /auth/sessions */}
+            <Route
+              path="sessions"
+              element={
+                <ProtectedRoute>
+                  <SessionsPage />
+                </ProtectedRoute>
+              }
+            />
 
-// Auth route configuration
-const authRoutes = [
-  {
-    path: "auth",
-    element: (
-      <div className="min-h-screen bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <Outlet />
-        </div>
+            {/* Unknown auth route */}
+            <Route path="*" element={<Navigate to="/auth/login" replace />} />
+          </Routes>
+        </Suspense>
       </div>
-    ),
-    children: [
-      {
-        index: true,
-        element: <Navigate to="/auth/login" replace />,
-      },
-      {
-        path: "login",
-        element: (
-          <PublicRoute>
-            <Suspense fallback={<LoadingSpinner size="lg" />}>
-              <LoginPage />
-            </Suspense>
-          </PublicRoute>
-        ),
-      },
-      {
-        path: "register",
-        element: (
-          <PublicRoute>
-            <Suspense fallback={<LoadingSpinner size="lg" />}>
-              <RegisterPage />
-            </Suspense>
-          </PublicRoute>
-        ),
-      },
-      {
-        path: "forgot-password",
-        element: (
-          <PublicRoute>
-            <Suspense fallback={<LoadingSpinner size="lg" />}>
-              <ForgotPasswordPage />
-            </Suspense>
-          </PublicRoute>
-        ),
-      },
-      {
-        path: "reset-password/:token",
-        element: (
-          <PublicRoute>
-            <Suspense fallback={<LoadingSpinner size="lg" />}>
-              <ResetPasswordPage />
-            </Suspense>
-          </PublicRoute>
-        ),
-      },
-      {
-        path: "verify-email/:token",
-        element: (
-          <Suspense fallback={<LoadingSpinner size="lg" />}>
-            <VerifyEmailPage />
-          </Suspense>
-        ),
-      },
-    ],
-  },
-  {
-    path: "profile",
-    element: (
-      <ProtectedRoute>
-        <Suspense fallback={<LoadingSpinner size="lg" />}>
-          <ProfilePage />
-        </Suspense>
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "sessions",
-    element: (
-      <ProtectedRoute>
-        <Suspense fallback={<LoadingSpinner size="lg" />}>
-          <SessionsPage />
-        </Suspense>
-      </ProtectedRoute>
-    ),
-  },
-];
+    </div>
+  );
+}
 
-export default authRoutes;
-
-// Utility to use with React Router v6
-export const getAuthRoutes = () => authRoutes;
+export default AuthRoutes;

@@ -1,7 +1,12 @@
 @baseUrl = http://localhost:5000/api/v1
-@email = test{{$timestamp}}@example.com
+@emaill = test{{$timestamp}}@example.com
+@passwordd = Secure@Pass123
+@usernamee = testuser{{$timestamp}}
+@fullNamee = Test User
+
+@email = test@example.com
 @password = Secure@Pass123
-@username = testuser{{$timestamp}}
+@username = testuser
 @fullName = Test User
 
 # ============================================================

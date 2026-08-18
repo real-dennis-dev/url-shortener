@@ -1,7 +1,7 @@
 // auth.controller.js
 const AuthService = require("./auth.service.js");
 const authUtils = require("./auth.utils.js");
-const authMiddleware = require("./auth.middleware.js");
+const authMiddleware = require("../../middleware/auth.middleware.js");
 
 const authService = new AuthService();
 
@@ -195,25 +195,23 @@ class AuthController {
    */
   async getCurrentUser(req, res, next) {
     try {
-      const user = await authService.getUserById(req.user.id);
+      // Guest user
+      if (!req.user) {
+        return res.json({
+          success: true,
+          data: {
+            isAuthenticated: false,
+            user: null,
+          },
+        });
+      }
 
-      res.json({
+      // Authenticated user
+      return res.json({
         success: true,
         data: {
-          user: {
-            id: user.id,
-            email: user.email,
-            fullName: user.full_name,
-            role: user.role,
-            plan: user.plan,
-            status: user.status,
-            emailVerified: user.email_verified,
-            apiKey: user.api_key,
-            quotaLimit: user.quota_limit,
-            totalClicks: user.total_clicks,
-            lastLogin: user.last_login,
-            createdAt: user.created_at,
-          },
+          isAuthenticated: true,
+          user: req.user,
         },
       });
     } catch (error) {

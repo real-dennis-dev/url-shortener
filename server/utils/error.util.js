@@ -1,146 +1,96 @@
-// src/utils/error.util.js
 const logger = require("./logger.util");
 
 /**
- * Custom API Error class
+ * Custom API Error
+ *
+ * Usage:
+ *   throw new ApiError(400, "Invalid email");
+ *   throw new ApiError(401, "Invalid credentials");
+ *   throw new ApiError(409, "User already exists");
+ *   throw new ApiError(500);
  */
 class ApiError extends Error {
-  constructor(statusCode, code, message, details = null) {
-    super(message);
-    this.statusCode = statusCode || 500;
-    this.code = code || "INTERNAL_ERROR";
-    this.details = details;
-    this.timestamp = new Date().toISOString();
-    this.isOperational = true;
+  constructor(statusCode = 500, message = null, details = null) {
+    super(message || getDefaultMessage(statusCode));
 
-    // Capture stack trace
+    this.name = "ApiError";
+    this.statusCode = statusCode;
+    this.details = details;
+    this.isOperational = true;
+    this.timestamp = new Date().toISOString();
+
+    // Stack exists on the server, but will NEVER be sent to the client.
     Error.captureStackTrace(this, this.constructor);
   }
 
   /**
-   * Convert error to JSON response
+   * JSON representation.
+   *
+   * Do NOT include stack here.
    */
   toJSON() {
     return {
       success: false,
       error: {
-        code: this.code,
+        statusCode: this.statusCode,
         message: this.message,
-        details: this.details,
+        ...(this.details !== null && {
+          details: this.details,
+        }),
         timestamp: this.timestamp,
       },
     };
   }
 
   /**
-   * Log error
+   * Log the complete error internally.
    */
   log() {
     const errorLevel = this.statusCode >= 500 ? "error" : "warn";
-    logger[errorLevel](
-      `API Error: ${this.code} (${this.statusCode}) - ${this.message}`,
-      {
-        stack: this.stack,
-        details: this.details,
-      }
-    );
+
+    logger[errorLevel](`API Error: ${this.statusCode} - ${this.message}`, {
+      statusCode: this.statusCode,
+      message: this.message,
+      details: this.details,
+      stack: this.stack,
+    });
   }
 }
 
 /**
- * Common error codes
+ * Default messages based purely on HTTP status.
+ *
+ * You don't need to specify a message when the generic message
+ * is sufficient.
  */
-const ErrorCodes = {
-  // Authentication errors
-  UNAUTHORIZED: "UNAUTHORIZED",
-  INVALID_CREDENTIALS: "INVALID_CREDENTIALS",
-  TOKEN_EXPIRED: "TOKEN_EXPIRED",
-  INVALID_TOKEN: "INVALID_TOKEN",
-  ACCOUNT_LOCKED: "ACCOUNT_LOCKED",
-  ACCOUNT_SUSPENDED: "ACCOUNT_SUSPENDED",
-  ACCOUNT_BANNED: "ACCOUNT_BANNED",
+function getDefaultMessage(statusCode) {
+  const messages = {
+    400: "Bad request",
+    401: "Authentication required",
+    403: "Forbidden",
+    404: "Resource not found",
+    405: "Method not allowed",
+    408: "Request timeout",
+    409: "Resource conflict",
+    410: "Resource no longer available",
+    413: "Request entity too large",
+    415: "Unsupported media type",
+    422: "Unprocessable entity",
+    429: "Too many requests",
+    500: "Internal server error",
+    501: "Not implemented",
+    502: "Bad gateway",
+    503: "Service temporarily unavailable",
+    504: "Gateway timeout",
+  };
 
-  // Authorization errors
-  FORBIDDEN: "FORBIDDEN",
-  INSUFFICIENT_PERMISSIONS: "INSUFFICIENT_PERMISSIONS",
-
-  // Validation errors
-  VALIDATION_ERROR: "VALIDATION_ERROR",
-  INVALID_INPUT: "INVALID_INPUT",
-
-  // Resource errors
-  NOT_FOUND: "NOT_FOUND",
-  RESOURCE_EXISTS: "RESOURCE_EXISTS",
-  CONFLICT: "CONFLICT",
-
-  // Business logic errors
-  QUOTA_EXCEEDED: "QUOTA_EXCEEDED",
-  RATE_LIMIT_EXCEEDED: "RATE_LIMIT_EXCEEDED",
-  URL_EXPIRED: "URL_EXPIRED",
-  URL_BLOCKED: "URL_BLOCKED",
-  PASSWORD_REQUIRED: "PASSWORD_REQUIRED",
-  INVALID_PASSWORD: "INVALID_PASSWORD",
-
-  // System errors
-  DATABASE_ERROR: "DATABASE_ERROR",
-  CACHE_ERROR: "CACHE_ERROR",
-  SERVICE_UNAVAILABLE: "SERVICE_UNAVAILABLE",
-  INTERNAL_ERROR: "INTERNAL_ERROR",
-};
-
-/**
- * Create common error instances
- */
-const createError = {
-  notFound: (resource, id) => {
-    return new ApiError(
-      404,
-      ErrorCodes.NOT_FOUND,
-      `${resource} with ID ${id} not found`
-    );
-  },
-
-  unauthorized: (message = "Authentication required") => {
-    return new ApiError(401, ErrorCodes.UNAUTHORIZED, message);
-  },
-
-  forbidden: (message = "Insufficient permissions") => {
-    return new ApiError(403, ErrorCodes.FORBIDDEN, message);
-  },
-
-  validation: (message, details) => {
-    return new ApiError(400, ErrorCodes.VALIDATION_ERROR, message, details);
-  },
-
-  conflict: (message) => {
-    return new ApiError(409, ErrorCodes.CONFLICT, message);
-  },
-
-  quotaExceeded: (message) => {
-    return new ApiError(429, ErrorCodes.QUOTA_EXCEEDED, message);
-  },
-
-  databaseError: (message) => {
-    return new ApiError(500, ErrorCodes.DATABASE_ERROR, message);
-  },
-
-  serviceUnavailable: (message = "Service temporarily unavailable") => {
-    return new ApiError(503, ErrorCodes.SERVICE_UNAVAILABLE, message);
-  },
-};
+  return messages[statusCode] || "An unexpected error occurred";
+}
 
 /**
  * Async error handler wrapper
  */
-const asyncHandler = (fn) => {
-  return (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
-};
 
 module.exports = {
   ApiError,
-  ErrorCodes,
-  createError,
-  asyncHandler,
 };

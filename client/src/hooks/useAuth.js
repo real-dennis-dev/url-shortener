@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useAuth as useAuthContext } from "../contexts/AuthContext";
 import AuthService from "../services/auth.service";
-import { toast } from "../components/common/Toast";
+import { Toast } from "../components/common/index";
 
 /**
  * useAuth hook - Provides authentication functionality

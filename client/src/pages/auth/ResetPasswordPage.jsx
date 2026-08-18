@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { Button, Input, Alert } from "../common";
+import { Button, Input, Alert } from "../../components/common";
 
 const ResetPasswordPage = () => {
   const { token } = useParams();

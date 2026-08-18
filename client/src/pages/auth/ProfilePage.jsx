@@ -9,7 +9,7 @@ import {
   LoadingSpinner,
   Alert,
   IconWrapper,
-} from "../common";
+} from "../../components/common";
 import { FaUser, FaEnvelope, FaKey, FaShieldAlt } from "react-icons/fa";
 
 const ProfilePage = () => {

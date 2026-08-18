@@ -9,7 +9,7 @@ import {
   Alert,
   Table,
   IconWrapper,
-} from "../common";
+} from "../../components/common";
 import {
   FaDesktop,
   FaMobile,

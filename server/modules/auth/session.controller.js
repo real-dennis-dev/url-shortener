@@ -1,6 +1,6 @@
 // session.controller.js
 const SessionService = require("./session.service.js");
-const authMiddleware = require("./auth.middleware.js");
+const authMiddleware = require("../../middleware/auth.middleware.js");
 
 const sessionService = new SessionService();
 

@@ -1,5 +1,5 @@
 // services/auth.service.js
-import { api } from "../api/fetch.instance.js";
+import { api } from "./api.js";
 
 const AuthService = {
   /**
@@ -74,7 +74,7 @@ const AuthService = {
   },
 
   /**
-   * Get current authenticated user
+   * Get current user
    */
   me: async () => {
     return api.get("/auth/me");
