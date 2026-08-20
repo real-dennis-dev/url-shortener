@@ -1,0 +1,725 @@
+openapi: 3.0.0
+info:
+  title: Users Module API
+  version: 1.0.0
+  description: URL Shortener Users Module API Documentation
+  contact:
+    name: API Support
+    email: support@example.com
+
+paths:
+  /api/v1/users/profile:
+    get:
+      summary: Get user profile
+      description: Retrieve the authenticated user's profile information
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/UserProfile"
+        401:
+          description: Unauthorized
+        404:
+          description: User not found
+
+    put:
+      summary: Update user profile
+      description: Update the authenticated user's profile information
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                  example: "John Doe"
+                avatarUrl:
+                  type: string
+                  format: uri
+                  maxLength: 500
+                  example: "https://example.com/avatar.jpg"
+                email:
+                  type: string
+                  format: email
+                  example: "john@example.com"
+                preferences:
+                  type: object
+                  properties:
+                    theme:
+                      type: string
+                      enum: [light, dark, system]
+                      example: "dark"
+                    notifications:
+                      type: boolean
+                      example: true
+                    language:
+                      type: string
+                      minLength: 2
+                      maxLength: 2
+                      example: "en"
+                    timezone:
+                      type: string
+                      example: "America/New_York"
+      responses:
+        200:
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/UserProfile"
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        404:
+          description: User not found
+
+  /api/v1/users/api-key:
+    post:
+      summary: Regenerate API key
+      description: Generate a new API key for the authenticated user
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: API key regenerated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      apiKey:
+                        type: string
+                        example: "uk_abc123def456..."
+                      regeneratedAt:
+                        type: string
+                        format: date-time
+                        example: "2024-01-15T10:30:00Z"
+        401:
+          description: Unauthorized
+
+  /api/v1/users/password:
+    put:
+      summary: Change password
+      description: Change the authenticated user's password
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+                - confirmNewPassword
+              properties:
+                currentPassword:
+                  type: string
+                  example: "oldPassword123!"
+                newPassword:
+                  type: string
+                  minLength: 8
+                  pattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$"
+                  example: "NewPassword123!"
+                confirmNewPassword:
+                  type: string
+                  example: "NewPassword123!"
+      responses:
+        200:
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Password changed successfully"
+        400:
+          description: Validation error
+        401:
+          description: Current password is incorrect
+
+  /api/v1/users/preferences:
+    get:
+      summary: Get user preferences
+      description: Retrieve the authenticated user's preferences
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Preferences retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/UserPreferences"
+
+    put:
+      summary: Update user preferences
+      description: Update the authenticated user's preferences
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                preferences:
+                  type: object
+                  properties:
+                    theme:
+                      type: string
+                      enum: [light, dark, system]
+                      example: "dark"
+                    notifications:
+                      type: boolean
+                      example: true
+                    language:
+                      type: string
+                      enum: [en, es, fr, de, ja, zh]
+                      example: "es"
+                    timezone:
+                      type: string
+                      pattern: "^[A-Za-z_]+/[A-Za-z_]+$"
+                      example: "Europe/London"
+                    emailNotifications:
+                      type: boolean
+                      example: true
+                    pushNotifications:
+                      type: boolean
+                      example: false
+                    analyticsOptOut:
+                      type: boolean
+                      example: false
+      responses:
+        200:
+          description: Preferences updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/UserPreferences"
+        400:
+          description: Validation error
+
+  /api/v1/users/plan:
+    put:
+      summary: Update user plan
+      description: Update the authenticated user's plan (Admin only)
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - plan
+              properties:
+                plan:
+                  type: string
+                  enum: [free, pro, business, enterprise]
+                  example: "pro"
+      responses:
+        200:
+          description: Plan updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        example: 1
+                      plan:
+                        type: string
+                        example: "pro"
+                      quotaLimit:
+                        type: integer
+                        example: 1000
+        403:
+          description: Insufficient permissions
+
+  /api/v1/users/stats:
+    get:
+      summary: Get user statistics
+      description: Retrieve the authenticated user's statistics
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/UserStats"
+
+  /api/v1/users/delete:
+    delete:
+      summary: Delete user account
+      description: Permanently delete the authenticated user's account
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - confirm
+                - password
+              properties:
+                confirm:
+                  type: boolean
+                  example: true
+                password:
+                  type: string
+                  example: "myCurrentPassword"
+      responses:
+        200:
+          description: Account deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Account deleted successfully"
+        400:
+          description: Validation error
+        401:
+          description: Invalid password
+
+  /api/v1/users/activity:
+    get:
+      summary: Get user activity
+      description: Retrieve the authenticated user's activity logs
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: activityType
+          schema:
+            type: string
+          description: Filter by activity type
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+          description: Filter from date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+          description: Filter to date
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page
+      responses:
+        200:
+          description: Activity retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      activities:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/UserActivity"
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      limit:
+                        type: integer
+
+  /api/v1/users:
+    get:
+      summary: Get all users
+      description: Retrieve all users (Admin only)
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum: [user, admin, moderator, support]
+          description: Filter by role
+        - in: query
+          name: plan
+          schema:
+            type: string
+            enum: [free, pro, business, enterprise]
+          description: Filter by plan
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, suspended, banned, pending_verification]
+          description: Filter by status
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search by email or full name
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page
+      responses:
+        200:
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      users:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/UserProfile"
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      limit:
+                        type: integer
+        403:
+          description: Insufficient permissions
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        email:
+          type: string
+          example: "john@example.com"
+        fullName:
+          type: string
+          example: "John Doe"
+        avatarUrl:
+          type: string
+          nullable: true
+          example: "https://example.com/avatar.jpg"
+        role:
+          type: string
+          enum: [user, admin, moderator, support]
+          example: "user"
+        plan:
+          type: string
+          enum: [free, pro, business, enterprise]
+          example: "free"
+        preferences:
+          $ref: "#/components/schemas/UserPreferences"
+        quotaLimit:
+          type: integer
+          example: 100
+        quota:
+          type: object
+          properties:
+            used:
+              type: integer
+              example: 5
+            total:
+              type: integer
+              example: 100
+            percentage:
+              type: number
+              example: 5
+            remaining:
+              type: integer
+              example: 95
+            isExceeded:
+              type: boolean
+              example: false
+        totalClicks:
+          type: integer
+          example: 150
+        lastLogin:
+          type: string
+          format: date-time
+          nullable: true
+        emailVerified:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum: [active, suspended, banned, pending_verification]
+          example: "active"
+        isOnline:
+          type: boolean
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserPreferences:
+      type: object
+      properties:
+        theme:
+          type: string
+          enum: [light, dark, system]
+          example: "light"
+        notifications:
+          type: boolean
+          example: true
+        language:
+          type: string
+          example: "en"
+        timezone:
+          type: string
+          example: "UTC"
+        emailNotifications:
+          type: boolean
+          example: true
+        pushNotifications:
+          type: boolean
+          example: true
+        analyticsOptOut:
+          type: boolean
+          example: false
+
+    UserStats:
+      type: object
+      properties:
+        overview:
+          type: object
+          properties:
+            totalUrls:
+              type: integer
+              example: 50
+            activeUrls:
+              type: integer
+              example: 45
+            totalClicks:
+              type: integer
+              example: 1500
+            quota:
+              type: object
+              properties:
+                used:
+                  type: integer
+                  example: 50
+                total:
+                  type: integer
+                  example: 100
+                percentage:
+                  type: number
+                  example: 50
+                remaining:
+                  type: integer
+                  example: 50
+                isExceeded:
+                  type: boolean
+                  example: false
+        urlBreakdown:
+          type: object
+          properties:
+            active:
+              type: integer
+              example: 45
+            inactive:
+              type: integer
+              example: 3
+            blocked:
+              type: integer
+              example: 1
+            flagged:
+              type: integer
+              example: 1
+        recentActivity:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+                example: "2024-01-15"
+              clicks:
+                type: integer
+                example: 25
+        topUrls:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              shortCode:
+                type: string
+                example: "abc123"
+              originalUrl:
+                type: string
+                example: "https://example.com/page"
+              title:
+                type: string
+                example: "Example Page"
+              clickCount:
+                type: integer
+                example: 100
+              createdAt:
+                type: string
+                format: date-time
+        userInfo:
+          type: object
+          properties:
+            plan:
+              type: string
+              example: "pro"
+            joinedDate:
+              type: string
+              format: date-time
+
+    UserActivity:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: integer
+        activityType:
+          type: string
+          example: "url_created"
+        description:
+          type: string
+          example: "Created a new short URL"
+        metadata:
+          type: object
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+tags:
+  - name: Users
+    description: User management operations

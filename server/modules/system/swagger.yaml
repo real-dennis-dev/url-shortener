@@ -1,0 +1,682 @@
+openapi: 3.0.0
+info:
+  title: System Module API
+  version: 1.0.0
+  description: URL Shortener System Module API Documentation
+  contact:
+    name: API Support
+    email: support@example.com
+
+paths:
+  /api/v1/system/health:
+    get:
+      summary: Health check
+      description: Check the health status of the system and its services
+      tags: [System]
+      responses:
+        200:
+          description: Health check successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/HealthCheck"
+
+  /api/v1/system/status:
+    get:
+      summary: Get system status
+      description: Retrieve system status including uptime, memory, CPU, and active users
+      tags: [System]
+      responses:
+        200:
+          description: System status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/SystemStatus"
+
+  /api/v1/system/settings:
+    get:
+      summary: Get system settings
+      description: Retrieve system configuration settings (Admin only)
+      tags: [System]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: keys
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+          description: Specific settings keys to retrieve
+      responses:
+        200:
+          description: Settings retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/SystemSettings"
+        401:
+          description: Unauthorized
+        403:
+          description: Insufficient permissions
+
+    put:
+      summary: Update system settings
+      description: Update system configuration settings (Admin only)
+      tags: [System]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - settings
+              properties:
+                settings:
+                  type: object
+                  properties:
+                    max_url_length:
+                      type: integer
+                      minimum: 100
+                      maximum: 10000
+                      example: 2048
+                    allowed_domains:
+                      type: array
+                      items:
+                        type: string
+                      example: ["*"]
+                    rate_limits:
+                      type: object
+                      properties:
+                        anonymous:
+                          type: integer
+                          minimum: 1
+                          maximum: 100
+                          example: 10
+                        authenticated:
+                          type: integer
+                          minimum: 1
+                          maximum: 10000
+                          example: 100
+                        premium:
+                          type: integer
+                          minimum: 1
+                          maximum: 100000
+                          example: 1000
+                    qr_settings:
+                      type: object
+                      properties:
+                        default_size:
+                          type: integer
+                          minimum: 100
+                          maximum: 1000
+                          example: 300
+                        allowed_formats:
+                          type: array
+                          items:
+                            type: string
+                            enum: [png, svg, jpg]
+                          example: ["png", "svg"]
+                    maintenance_mode:
+                      type: boolean
+                      example: false
+                    short_code_length:
+                      type: integer
+                      minimum: 3
+                      maximum: 10
+                      example: 6
+                    max_short_code_length:
+                      type: integer
+                      minimum: 5
+                      maximum: 30
+                      example: 20
+                    click_cache_duration:
+                      type: integer
+                      minimum: 60
+                      maximum: 86400
+                      example: 3600
+                    bulk_upload_max_rows:
+                      type: integer
+                      minimum: 100
+                      maximum: 100000
+                      example: 10000
+                    api_rate_limit:
+                      type: integer
+                      minimum: 10
+                      maximum: 10000
+                      example: 1000
+      responses:
+        200:
+          description: Settings updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/SystemSettings"
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Insufficient permissions
+
+  /api/v1/system/maintenance:
+    post:
+      summary: Toggle maintenance mode
+      description: Enable or disable system maintenance mode (Admin only)
+      tags: [System]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - enable
+              properties:
+                enable:
+                  type: boolean
+                  example: true
+                message:
+                  type: string
+                  maxLength: 500
+                  example: "System maintenance scheduled. Estimated downtime: 30 minutes."
+      responses:
+        200:
+          description: Maintenance mode toggled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                      message:
+                        type: string
+                      maintenanceMode:
+                        type: boolean
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Insufficient permissions
+
+  /api/v1/system/metrics:
+    get:
+      summary: Get system metrics
+      description: Retrieve detailed system performance metrics (Admin only)
+      tags: [System]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/SystemMetrics"
+        401:
+          description: Unauthorized
+        403:
+          description: Insufficient permissions
+
+  /api/v1/system/cache/clear:
+    post:
+      summary: Clear system cache
+      description: Clear all system caches (Admin only)
+      tags: [System]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Cache cleared successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      success:
+                        type: boolean
+                      message:
+                        type: string
+        401:
+          description: Unauthorized
+        403:
+          description: Insufficient permissions
+
+  /api/v1/system/logs:
+    get:
+      summary: Get system logs
+      description: Retrieve system operation logs (Admin only)
+      tags: [System]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: operation
+          schema:
+            type: string
+          description: Filter by operation type
+        - in: query
+          name: userId
+          schema:
+            type: integer
+          description: Filter by user ID
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+          description: Filter from date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+          description: Filter to date
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+          description: Items per page
+      responses:
+        200:
+          description: Logs retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      logs:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SystemLog"
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      totalPages:
+                        type: integer
+                      limit:
+                        type: integer
+        401:
+          description: Unauthorized
+        403:
+          description: Insufficient permissions
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    HealthCheck:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+        uptime:
+          type: number
+          example: 86400
+        services:
+          type: object
+          properties:
+            database:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, unhealthy]
+                responseTime:
+                  type: string
+                details:
+                  type: string
+            cache:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, unhealthy]
+                responseTime:
+                  type: string
+                details:
+                  type: string
+            queue:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, warning]
+                details:
+                  type: string
+                stats:
+                  type: object
+            email:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [healthy, warning]
+                details:
+                  type: string
+        version:
+          type: string
+          example: "1.0.0"
+        environment:
+          type: string
+          example: "production"
+        unhealthyServices:
+          type: array
+          items:
+            type: string
+
+    SystemStatus:
+      type: object
+      properties:
+        uptime:
+          type: object
+          properties:
+            process:
+              type: number
+            system:
+              type: number
+        memory:
+          type: object
+          properties:
+            total:
+              type: number
+            free:
+              type: number
+            used:
+              type: number
+            usagePercent:
+              type: string
+            process:
+              type: object
+        cpu:
+          type: object
+          properties:
+            cores:
+              type: integer
+            model:
+              type: string
+            loadAverage:
+              type: array
+              items:
+                type: number
+            usage:
+              type: number
+        system:
+          type: object
+          properties:
+            hostname:
+              type: string
+            platform:
+              type: string
+            release:
+              type: string
+            arch:
+              type: string
+        activeUsers:
+          type: integer
+        activeSessions:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+
+    SystemSettings:
+      type: object
+      properties:
+        max_url_length:
+          type: object
+          properties:
+            value:
+              type: integer
+            description:
+              type: string
+            updatedAt:
+              type: string
+              format: date-time
+        allowed_domains:
+          type: object
+          properties:
+            value:
+              type: array
+              items:
+                type: string
+            description:
+              type: string
+            updatedAt:
+              type: string
+              format: date-time
+        rate_limits:
+          type: object
+          properties:
+            value:
+              type: object
+            description:
+              type: string
+            updatedAt:
+              type: string
+              format: date-time
+        qr_settings:
+          type: object
+          properties:
+            value:
+              type: object
+            description:
+              type: string
+            updatedAt:
+              type: string
+              format: date-time
+        maintenance_mode:
+          type: object
+          properties:
+            value:
+              type: boolean
+            description:
+              type: string
+            updatedAt:
+              type: string
+              format: date-time
+        short_code_length:
+          type: object
+          properties:
+            value:
+              type: integer
+            description:
+              type: string
+            updatedAt:
+              type: string
+              format: date-time
+
+    SystemMetrics:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        memory:
+          type: object
+          properties:
+            total:
+              type: number
+            free:
+              type: number
+            used:
+              type: number
+            usagePercent:
+              type: string
+            totalGB:
+              type: string
+            freeGB:
+              type: string
+            usedGB:
+              type: string
+        cpu:
+          type: object
+          properties:
+            cores:
+              type: integer
+            model:
+              type: string
+            speed:
+              type: integer
+            loadAverage:
+              type: object
+              properties:
+                "1min":
+                  type: number
+                "5min":
+                  type: number
+                "15min":
+                  type: number
+        process:
+          type: object
+          properties:
+            pid:
+              type: integer
+            title:
+              type: string
+            version:
+              type: string
+            platform:
+              type: string
+            uptime:
+              type: number
+            memoryUsage:
+              type: object
+        system:
+          type: object
+          properties:
+            uptime:
+              type: number
+            loadavg:
+              type: array
+              items:
+                type: number
+            totalMemory:
+              type: number
+            freeMemory:
+              type: number
+        database:
+          type: object
+          properties:
+            connections:
+              type: integer
+            available:
+              type: integer
+            status:
+              type: string
+        cache:
+          type: object
+          properties:
+            hits:
+              type: integer
+            misses:
+              type: integer
+            keys:
+              type: integer
+            hitRate:
+              type: string
+            status:
+              type: string
+
+    SystemLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: integer
+          nullable: true
+        endpoint:
+          type: string
+        method:
+          type: string
+        statusCode:
+          type: integer
+        responseTime:
+          type: integer
+        requestBody:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+tags:
+  - name: System
+    description: System management operations

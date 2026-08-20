@@ -1,0 +1,454 @@
+openapi: 3.0.0
+info:
+  title: Webhooks Module API
+  version: 1.0.0
+  description: URL Shortener Webhooks Module API Documentation
+
+paths:
+  /api/v1/webhooks:
+    get:
+      summary: Get webhooks
+      description: Retrieve all webhooks for the authenticated user
+      tags: [Webhooks]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+          description: Items per page
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            enum: [createdAt, updatedAt, name]
+            default: createdAt
+          description: Sort field
+        - in: query
+          name: sortOrder
+          schema:
+            type: string
+            enum: [ASC, DESC]
+            default: DESC
+          description: Sort order
+      responses:
+        200:
+          description: Webhooks retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  webhooks:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Webhook"
+                  total:
+                    type: integer
+                    example: 5
+                  page:
+                    type: integer
+                    example: 1
+                  totalPages:
+                    type: integer
+                    example: 1
+                  limit:
+                    type: integer
+                    example: 10
+        401:
+          description: Unauthorized
+
+    post:
+      summary: Create webhook
+      description: Create a new webhook configuration
+      tags: [Webhooks]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+                - events
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  maxLength: 2048
+                  example: "https://example.com/webhook"
+                  description: Webhook endpoint URL
+                events:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - url.created
+                      - url.updated
+                      - url.deleted
+                      - url.clicked
+                      - url.expired
+                      - url.flagged
+                      - url.blocked
+                      - user.registered
+                      - user.updated
+                      - user.deleted
+                      - report.created
+                      - report.resolved
+                      - report.dismissed
+                  minItems: 1
+                  example: ["url.created", "url.clicked"]
+                  description: Events to trigger this webhook
+                secret:
+                  type: string
+                  minLength: 16
+                  maxLength: 64
+                  pattern: "^[a-zA-Z0-9!@#$%^&*()_+\\-={}[\\]:;\"'<>,.?/~`]{16,64}$"
+                  nullable: true
+                  description: Webhook secret for signature validation
+                isActive:
+                  type: boolean
+                  default: true
+                  description: Whether the webhook is active
+      responses:
+        201:
+          description: Webhook created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Webhook"
+        400:
+          description: Validation error
+        403:
+          description: Webhook limit reached for plan
+        401:
+          description: Unauthorized
+
+  /api/v1/webhooks/{id}:
+    put:
+      summary: Update webhook
+      description: Update an existing webhook configuration
+      tags: [Webhooks]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Webhook ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  maxLength: 2048
+                  description: Webhook endpoint URL
+                events:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - url.created
+                      - url.updated
+                      - url.deleted
+                      - url.clicked
+                      - url.expired
+                      - url.flagged
+                      - url.blocked
+                      - user.registered
+                      - user.updated
+                      - user.deleted
+                      - report.created
+                      - report.resolved
+                      - report.dismissed
+                  minItems: 1
+                  description: Events to trigger this webhook
+                secret:
+                  type: string
+                  minLength: 16
+                  maxLength: 64
+                  pattern: "^[a-zA-Z0-9!@#$%^&*()_+\\-={}[\\]:;\"'<>,.?/~`]{16,64}$"
+                  nullable: true
+                  description: Webhook secret for signature validation
+                isActive:
+                  type: boolean
+                  description: Whether the webhook is active
+      responses:
+        200:
+          description: Webhook updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Webhook"
+        400:
+          description: Validation error
+        403:
+          description: Permission denied
+        404:
+          description: Webhook not found
+
+    delete:
+      summary: Delete webhook
+      description: Delete an existing webhook
+      tags: [Webhooks]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Webhook ID
+      responses:
+        200:
+          description: Webhook deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  id:
+                    type: string
+                    format: uuid
+        403:
+          description: Permission denied
+        404:
+          description: Webhook not found
+
+  /api/v1/webhooks/{id}/test:
+    post:
+      summary: Test webhook
+      description: Send a test webhook request
+      tags: [Webhooks]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Webhook ID
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event:
+                  type: string
+                  enum:
+                    - url.created
+                    - url.updated
+                    - url.deleted
+                    - url.clicked
+                    - url.expired
+                    - url.flagged
+                    - url.blocked
+                  default: url.created
+                  description: Event to test
+                customData:
+                  type: object
+                  additionalProperties: true
+                  description: Custom test data
+      responses:
+        200:
+          description: Webhook test completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  responseTime:
+                    type: integer
+                    example: 245
+                    description: Response time in milliseconds
+                  statusCode:
+                    type: integer
+                    example: 200
+                  response:
+                    type: object
+                    nullable: true
+                  error:
+                    type: string
+                    nullable: true
+                  payload:
+                    type: object
+        403:
+          description: Permission denied
+        404:
+          description: Webhook not found
+
+  /api/v1/webhooks/{id}/events:
+    get:
+      summary: Get webhook events
+      description: Get event history for a webhook
+      tags: [Webhooks]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Webhook ID
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+          description: Items per page
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            enum: [createdAt, event]
+            default: createdAt
+          description: Sort field
+        - in: query
+          name: sortOrder
+          schema:
+            type: string
+            enum: [ASC, DESC]
+            default: DESC
+          description: Sort order
+      responses:
+        200:
+          description: Webhook events retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WebhookEvent"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  limit:
+                    type: integer
+        403:
+          description: Permission denied
+        404:
+          description: Webhook not found
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Webhook:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        user_id:
+          type: integer
+          example: 1
+        url:
+          type: string
+          format: uri
+          example: "https://example.com/webhook"
+        events:
+          type: array
+          items:
+            type: string
+          example: ["url.created", "url.clicked"]
+        secret:
+          type: string
+          nullable: true
+          example: "abc123def456..."
+        is_active:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum: [active, degraded, inactive, deactivated]
+          example: "active"
+        failure_count:
+          type: integer
+          example: 0
+        last_triggered_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    WebhookEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        webhook_id:
+          type: string
+          format: uuid
+        event:
+          type: string
+          enum:
+            - created
+            - updated
+            - deleted
+            - triggered
+            - delivered
+            - failed
+            - deactivated
+            - test
+        metadata:

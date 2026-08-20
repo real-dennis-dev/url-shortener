@@ -1,0 +1,1034 @@
+openapi: 3.0.0
+info:
+  title: Notifications Module API
+  version: 1.0.0
+  description: URL Shortener Notifications Module API Documentation
+
+paths:
+  # ============================
+  # USER NOTIFICATIONS
+  # ============================
+
+  /api/v1/notifications:
+    get:
+      summary: Get user notifications
+      description: Retrieve notifications for the authenticated user
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page
+        - in: query
+          name: isRead
+          schema:
+            type: boolean
+          description: Filter by read status
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [info, success, warning, error]
+          description: Filter by notification type
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+          description: Filter from date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+          description: Filter to date
+      responses:
+        200:
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notification"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  limit:
+                    type: integer
+                  unreadCount:
+                    type: integer
+
+    post:
+      summary: Create notification (admin)
+      description: Create a notification for a user
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - message
+              properties:
+                userId:
+                  type: integer
+                  description: Target user ID (optional, defaults to current user)
+                title:
+                  type: string
+                  maxLength: 255
+                  description: Notification title
+                message:
+                  type: string
+                  maxLength: 5000
+                  description: Notification message
+                type:
+                  type: string
+                  enum: [info, success, warning, error]
+                  default: info
+                channel:
+                  type: string
+                  enum: [email, webhook, push]
+                  default: email
+                metadata:
+                  type: object
+                  description: Additional metadata
+      responses:
+        201:
+          description: Notification created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Insufficient permissions
+
+  /api/v1/notifications/{id}:
+    put:
+      summary: Mark notification as read
+      description: Mark a specific notification as read
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Notification ID
+      responses:
+        200:
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  notification:
+                    $ref: "#/components/schemas/Notification"
+        404:
+          description: Notification not found
+
+    delete:
+      summary: Delete notification
+      description: Delete a specific notification
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Notification ID
+      responses:
+        200:
+          description: Notification deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        404:
+          description: Notification not found
+
+  /api/v1/notifications/read-all:
+    post:
+      summary: Mark all as read
+      description: Mark all notifications as read for the authenticated user
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: All notifications marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  count:
+                    type: integer
+                    description: Number of notifications marked as read
+
+  /api/v1/notifications/unread:
+    get:
+      summary: Get unread count
+      description: Get the count of unread notifications for the authenticated user
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Unread count retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+
+  /api/v1/notifications/bulk:
+    post:
+      summary: Send bulk notifications (admin)
+      description: Send notifications to multiple users
+      tags: [Notifications]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userIds
+                - title
+                - message
+              properties:
+                userIds:
+                  type: array
+                  items:
+                    type: integer
+                  description: Array of user IDs
+                title:
+                  type: string
+                  maxLength: 255
+                message:
+                  type: string
+                  maxLength: 5000
+                type:
+                  type: string
+                  enum: [info, success, warning, error]
+                  default: info
+                metadata:
+                  type: object
+      responses:
+        200:
+          description: Bulk notifications sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: integer
+                    description: Number of successful notifications
+                  failed:
+                    type: integer
+                    description: Number of failed notifications
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notification"
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: integer
+                        error:
+                          type: string
+
+  # ============================
+  # PREFERENCES
+  # ============================
+
+  /api/v1/notifications/preferences:
+    get:
+      summary: Get notification preferences
+      description: Get the notification preferences for the authenticated user
+      tags: [Preferences]
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Preferences retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  preferences:
+                    $ref: "#/components/schemas/Preferences"
+
+    put:
+      summary: Update notification preferences
+      description: Update the notification preferences for the authenticated user
+      tags: [Preferences]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Preferences"
+      responses:
+        200:
+          description: Preferences updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  preferences:
+                    $ref: "#/components/schemas/Preferences"
+
+  # ============================
+  # EMAIL NOTIFICATIONS
+  # ============================
+
+  /api/v1/notifications/email:
+    post:
+      summary: Send email notification (admin)
+      description: Send an email notification to a user
+      tags: [Email]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+              properties:
+                to:
+                  type: string
+                  format: email
+                  description: Recipient email
+                subject:
+                  type: string
+                  maxLength: 255
+                  description: Email subject
+                html:
+                  type: string
+                  description: HTML content
+                text:
+                  type: string
+                  description: Plain text content
+                templateName:
+                  type: string
+                  description: Template name to use
+                variables:
+                  type: object
+                  description: Variables for template
+                attachments:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      filename:
+                        type: string
+                      content:
+                        type: string
+                      path:
+                        type: string
+                      contentType:
+                        type: string
+      responses:
+        200:
+          description: Email sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  messageId:
+                    type: string
+
+  /api/v1/notifications/email/template:
+    post:
+      summary: Send email with template (admin)
+      description: Send an email using a database template
+      tags: [Email]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - templateName
+              properties:
+                userId:
+                  type: integer
+                  description: User ID to send email to
+                templateName:
+                  type: string
+                  description: Template name
+                variables:
+                  type: object
+                  description: Variables for template
+      responses:
+        200:
+          description: Email sent successfully
+
+  /api/v1/notifications/email/bulk:
+    post:
+      summary: Send bulk email with template (admin)
+      description: Send emails to multiple recipients using a template
+      tags: [Email]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - recipients
+                - templateName
+              properties:
+                recipients:
+                  type: array
+                  items:
+                    type: string
+                    format: email
+                  description: List of recipient emails
+                templateName:
+                  type: string
+                  description: Template name
+                variables:
+                  type: object
+                  description: Variables for template
+      responses:
+        200:
+          description: Bulk emails sent
+
+  # ============================
+  # TEMPLATE MANAGEMENT
+  # ============================
+
+  /api/v1/notifications/email-templates:
+    get:
+      summary: Get email templates
+      description: Get all email templates (admin only)
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: name
+          schema:
+            type: string
+          description: Filter by template name
+        - in: query
+          name: category
+          schema:
+            type: string
+          description: Filter by category
+        - in: query
+          name: isActive
+          schema:
+            type: boolean
+          description: Filter by active status
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page
+      responses:
+        200:
+          description: Templates retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EmailTemplate"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  limit:
+                    type: integer
+
+    post:
+      summary: Create email template (admin)
+      description: Create a new email template
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailTemplateCreate"
+      responses:
+        201:
+          description: Template created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailTemplate"
+
+  /api/v1/notifications/email-templates/{name}:
+    put:
+      summary: Update email template (admin)
+      description: Update an existing email template
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+          description: Template name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailTemplateCreate"
+      responses:
+        200:
+          description: Template updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailTemplate"
+
+    delete:
+      summary: Delete email template (admin)
+      description: Delete an email template
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+          description: Template name
+      responses:
+        200:
+          description: Template deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  deleted:
+                    $ref: "#/components/schemas/EmailTemplate"
+
+  /api/v1/notifications/notification-templates:
+    get:
+      summary: Get notification templates
+      description: Get all notification templates (admin only)
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: name
+          schema:
+            type: string
+          description: Filter by template name
+        - in: query
+          name: category
+          schema:
+            type: string
+          description: Filter by category
+        - in: query
+          name: isActive
+          schema:
+            type: boolean
+          description: Filter by active status
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+          description: Items per page
+      responses:
+        200:
+          description: Templates retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  templates:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/NotificationTemplate"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  totalPages:
+                    type: integer
+                  limit:
+                    type: integer
+
+    post:
+      summary: Create notification template (admin)
+      description: Create a new notification template
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationTemplateCreate"
+      responses:
+        201:
+          description: Template created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationTemplate"
+
+  /api/v1/notifications/notification-templates/{name}:
+    put:
+      summary: Update notification template (admin)
+      description: Update an existing notification template
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+          description: Template name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationTemplateCreate"
+      responses:
+        200:
+          description: Template updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationTemplate"
+
+    delete:
+      summary: Delete notification template (admin)
+      description: Delete a notification template
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+          description: Template name
+      responses:
+        200:
+          description: Template deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  deleted:
+                    $ref: "#/components/schemas/NotificationTemplate"
+
+  /api/v1/notifications/templates/preview:
+    post:
+      summary: Preview template (admin)
+      description: Preview a template with sample data
+      tags: [Templates]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - template
+                - type
+              properties:
+                template:
+                  type: object
+                  description: Template object with content
+                type:
+                  type: string
+                  enum: [email, notification]
+                  description: Template type
+                sampleData:
+                  type: object
+                  description: Sample data for preview
+      responses:
+        200:
+          description: Preview generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  preview:
+                    type: object
+                    properties:
+                      subject:
+                        type: string
+                      html:
+                        type: string
+                      text:
+                        type: string
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: integer
+        title:
+          type: string
+        message:
+          type: string
+        type:
+          type: string
+          enum: [info, success, warning, error]
+        channel:
+          type: string
+          enum: [email, webhook, push]
+        is_read:
+          type: boolean
+        read_at:
+          type: string
+          format: date-time
+          nullable: true
+        metadata:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+
+    Preferences:
+      type: object
+      properties:
+        email:
+          type: boolean
+          default: true
+        push:
+          type: boolean
+          default: true
+        webhook:
+          type: boolean
+          default: false
+        categories:
+          type: object
+          properties:
+            welcome:
+              type: boolean
+              default: true
+            verification:
+              type: boolean
+              default: true
+            security:
+              type: boolean
+              default: true
+            moderation:
+              type: boolean
+              default: true
+            analytics:
+              type: boolean
+              default: true
+            url_management:
+              type: boolean
+              default: true
+            system:
+              type: boolean
+              default: true
+        digest:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              default: false
+            frequency:
+              type: string
+              enum: [daily, weekly, monthly]
+              default: weekly
+            day:
+              type: string
+              enum:
+                [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
+            time:
+              type: string
+              pattern: "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+              default: "09:00"
+        quietHours:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              default: false
+            start:
+              type: string
+              pattern: "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+              default: "22:00"
+            end:
+              type: string
+              pattern: "^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+              default: "07:00"
+
+    EmailTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        subject:
+          type: string
+        html_content:
+          type: string
+        text_content:
+          type: string
+          nullable: true
+        variables:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+        is_active:
+          type: boolean
+        created_by:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    EmailTemplateCreate:
+      type: object
+      required:
+        - name
+        - subject
+        - htmlContent
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 255
+        htmlContent:
+          type: string
+          minLength: 1
+        textContent:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+          default: []
+        description:
+          type: string
+          maxLength: 500
+        category:
+          type: string
+          maxLength: 50
+          default: general
+        isActive:
+          type: boolean
+          default: true
+
+    NotificationTemplate:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        title:
+          type: string
+        message_template:
+          type: string
+        type:
+          type: string
+          enum: [info, success, warning, error]
+        variables:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+          nullable: true
+        category:
+          type: string
+        is_active:
+          type: boolean
+        created_by:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    NotificationTemplateCreate:
+      type: object
+      required:
+        - name
+        - title
+        - messageTemplate
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        messageTemplate:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [info, success, warning, error]
+          default: info
+        variables:
+          type: array
+          items:
+            type: string
+          default: []
+        description:
+          type: string
+          maxLength: 500
+        category:
+          type: string
+          maxLength: 50
+          default: general
+        isActive:
+          type: boolean
+          default: true
+
+tags:
+  - name: Notifications
+    description: User notification operations
+  - name: Preferences
+    description: Notification preferences management
+  - name: Email
+    description: Email notification operations
+  - name: Templates
+    description: Email and notification template management
